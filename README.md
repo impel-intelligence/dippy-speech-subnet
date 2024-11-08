@@ -5,9 +5,9 @@
 
 
 
-*Check out the beta version of our [Front-End]()! Also, please check our [Launch Tweet]() for our vision of creating the world's best open-source speech model.*
+*Check out the beta version of our [Front-End](https://www.dippyspeech.com/)! Also, please check our [Launch Tweet]() for our vision of creating the world's best open-source speech model.*
 
-[![DIPPY](/assets/banner8.png)](https://dippy.ai)
+[![DIPPY](/assests/animation2.gif)](https://www.dippyspeech.com/)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT) 
 
 ---
