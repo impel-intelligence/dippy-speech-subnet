@@ -1,9 +1,13 @@
 <div align="center">
 
-# Dippy SN X: Creating The World's Best Open-Source Voice Roleplay System
+# Dippy Empathetic Speech Subnet
+**Creating the World’s Best Open-Source Speech Model on Bittensor**
 
 
-[![DIPPY](/assests/banner.png)](https://dippy.ai)
+
+*Check out the beta version of our [Front-End]()! Also, please check our [Launch Tweet]() for our vision of creating the world's best open-source speech model.*
+
+[![DIPPY](/assets/banner8.png)](https://dippy.ai)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT) 
 
 ---
@@ -27,66 +31,76 @@
 
 > **Note:** The following documentation assumes you are familiar with basic Bittensor concepts: Miners, Validators, and incentives. If you need a primer, please check out https://docs.bittensor.com/learn/bittensor-building-blocks.
 
-The Dippy Voice subnet (SN X) on Bittensor aims to create the world's best open-source voice roleplay system by leveraging the collective efforts of the open-source community. This subnet addresses the critical issue of loneliness, which affects a significant portion of the population and is linked to various mental and physical health problems. 
+Dippy is one of the world's leading AI companion apps with **1M+ users**. The app has ranked [**#3 on the App Store**](https://x.com/angad_ai/status/1850924240742031526) in countries like Germany, been covered by publications like [**Wired magazine**](https://www.wired.com/story/dippy-ai-girlfriend-boyfriend-reasoning/) and the average Dippy user **spends 1+ hour on the app.** 
 
-Our team at Impel Intelligence Inc. are looking to enhance Dippy, a proactive AI companion app. In this subnet, we will bring together the entire open-source eco-system to build the world's best voice roleplay system, focusing on voice synthesis and processing capabilities.
+The Dippy team is also behind [Bittensor's Subnet 11](https://github.com/impel-intelligence/dippy-bittensor-subnet), which exists to create the world's best open-source roleplay LLM. Open-source miner models created on Subnet 11 are used to power the Dippy app. We also plan to integrate the models created from this speech subnet within the Dippy app. 
+
+The Dippy Empathetic Speech Subnet on Bittensor is dedicated to developing the world’s most advanced open-source Speech model for immersive, lifelike interactions. By leveraging the collaborative strength of the open-source community, this subnet meets the growing demand for genuine companionship through a speech-first approach. Our objective is to create a model that delivers personalized, empathetic speech interactions beyond the capabilities of traditional assistants and closed-source models. 
+
+Unlike existing models that depend on reference speech recordings that limit creative flexibility, we use natural language prompting to manage speaker identity and style. This intuitive approach enables more dynamic and personalized roleplay experiences, fostering deeper and more engaging interactions.
+
+![DIPPY](/assets/banner9.png)
 
 ## Roadmap
 
-Given the complexity of creating a state of the art voice roleplay system, we plan to divide the process into 3 distinct phases.
+Given the complexity of creating a state of the art speech model, we plan to divide the process into 3 distinct phases.
 
 **Phase 1:** 
-- [x] Testnet Subnet launch with robust pipeline for voice synthesis evaluation on public datasets
-- [ ] Mainnet Subnet launch with voice quality and character consistency metrics
-- [ ] Integration with existing roleplay capabilities from SN11
+- [ ] Launch a subnet with a robust pipeline for roleplay-specific TTS models, capable of interpreting prompts for speaker identity and stylistic speech description.
+- [ ] Launch infinitely scaling synthetic speech data pipeline
+- [ ] Implement a public model leaderboard, ranked on core evaluation metric
+- [ ] Introduce Human Likeness Score and Word Error Rate as live evaluation criteria for ongoing model assessment.
 
 **Phase 2:** 
-- [ ] Enhanced voice emotion and prosody control
-- [ ] Multi-speaker voice synthesis support
-- [ ] Real-time voice processing improvements
+- [ ] Refine TTS models toward producing more creatively expressive, highly human-like speech outputs.
+- [ ] Showcase the highest-scoring models and make them accessible to the public through the front-end interface.
 
 **Phase 3:** 
-- [ ] Advanced voice style transfer capabilities
-- [ ] Dynamic voice adaptation
-- [ ] Seamless character voice switching
+- [ ] Advance toward an end-to-end Speech model that seamlessly generates and processes high-quality roleplay audio. 
+- [ ] Establish a comprehensive pipeline for evaluating new Speech model submissions against real-time performance benchmarks.
+- [ ] Integrate the Speech model within the Dippy app
+- [ ] Drive the state of the art in Speech roleplay through iterative enhancements and ongoing data collection.
 
 ## Overview of Miner and Validator Functionality
 
-![overview](/assests/model_architecture.png)
+![overview](/assets/architecturenew.png)
 
-**Miners** would implement and optimize voice synthesis models to create high-quality, character-consistent voices for roleplay interactions. These models would be submitted to a shared Hugging Face pool. 
+**Miners** would use existing frameworks to fine tune models to improve upon the current SOTA open-source TTS model. The finetuned weights would be submitted to a shared Hugging Face pool. 
 
-**Validators** would evaluate and assess model performance via our protocol and rank the submissions based on various metrics (human voice similarity, emotional expression, character consistency, etc). We will provide a suite of testing and benchmarking protocols with state-of-the-art voice datasets.
+**Validators** would evaluate the and assess model performance via our protocol and rank the submissions based on various metrics (empathy, conciseness etc). We will provide a suite of 
+testing and benchmarking protocols with state-of-the-art datasets.
+
+
 
 ## Running Miners and Validators
 ### Running a Miner
 
 #### Requirements
-- Python 3.8+ (we recommend using [uv](https://github.com/astral-sh/uv?tab=readme-ov-file#installation) for managing python environments)
+- Python 3.8+
 - GPU with at least 24 GB of VRAM
 
 #### Setup
 To start, clone the repository and `cd` to it:
 ```
-git clone https://github.com/impel-intelligence/dippy-synthetic-speech-subnet.git
-cd dippy-synthetic-speech-subnet
+git clone https://github.com/impel-intelligence/dippy-bittensor-subnet.git
+cd dippy-bittensor-subnet
 pip install -e .
 ```
 #### Submitting a model
-As a miner, you're responsible for developing and optimizing voice synthesis models that can produce high-quality, character-consistent voices for roleplay interactions.
+As a miner, you're responsible for leveraging all methods available at your disposal, including but not limited to training new models, merging existing models (we recommend [MergeKit](https://github.com/arcee-ai/mergekit)), finetuning existing models, and so on to push roleplay LLMs forward.
 
 We outline the following criteria for Phase 1:
 
-- Models MUST be in Safetensors Format! Check upload_models.py for how the model upload precheck works.
-- Please test the model by loading it using the appropriate voice synthesis framework
-- (Recommended) Test the model with sample inputs before submitting
-- Support for common voice synthesis architectures (FastSpeech2, Tacotron, etc.)
-- Models should handle various speaking styles and emotions
+- Models should be a fine-tune of the 880M Parler-TTS model.
+- Models MUST be Safetensors Format! Check upload_models.py for how the model upload precheck works.
+- (Recommended) Test the model with arbitrary inputs, before submitting, to check for NaNs.
 
-Once you're happy with the performance of your voice synthesis model, you can submit it to Hugging Face 🤗 using the following command:
+- **Models** we currently only support the [Parler TTS Mini v1 on Hugging Face](https://huggingface.co/parler-tts/parler-tts-mini-v1) 
+
+Once you're happy with the performance of the model for the usecase of Roleplay, you can simply submit it to Hugging Face 🤗 and then use the following command:
 
 ```bash
-python3 dippy_subnet/upload_model.py --hf_repo_id HF_REPO --wallet.name WALLET  --wallet.hotkey HOTKEY --model_dir PATH_TO_MODEL   
+python3 dippy_subnet/upload_model.py --hf_repo_id HF_REPO --wallet.name WALLET  --wallet.hotkey HOTKEY --chat_template MODEL_CHAT_TEMPLATE --model_dir PATH_TO_MODEL   
 ```
 
 
@@ -243,7 +257,7 @@ chmod +x kill_validation_api.sh
 ./kill_validation_api.sh
 ```
 
-#### Running the validator with your own validation API service running locally (optional)
+#### Running the validator with your own validation API service running locally
 ```bash
 # Make a separate venv for the validator because of pydantic version conflict
 python -m venv validator_venv
@@ -253,10 +267,17 @@ validator_venv/bin/python neurons/validator.py --wallet.name WALLET_NAME --walle
 validator_venv/bin/python neurons/model_queue.py --use-local-validation-api
 ```
 ## Model Evaluation Criteria
+### Human Likeness Score
+Models are evaluated on how closely their vocal outputs resemble natural human speech, considering factors such as emotional expression, intonation, pauses, and excitation levels. The more natural and convincingly human the voice sounds, the higher the score.
 
-The current model evaluation is based on a proprietary process which will be slowly released to the public as we develop better safeguards around incentive gaming.
+<!-- $S_{size} = 1 - ModelSize/ MaxModelSize$ -->
+### Word Error Rate
+Models that produce human-like speech with high clarity and coherence will achieve the highest scores. Lower word error rates indicate clearer, more accurate speech output, enhancing the model's overall evaluation.
 
 
+## Acknowledgement
+
+Our codebase is built upon [Nous Research's](https://github.com/NousResearch/finetuning-subnet) and [MyShell's](https://github.com/myshell-ai/MyShell-TTS-Subnet?tab=readme-ov-file) Subnets.
 
 ## License
 
