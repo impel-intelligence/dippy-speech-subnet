@@ -1,0 +1,16 @@
+bittensor==8.2.0
+pydantic
+transformers
+torch
+pandas
+sentencepiece
+protobuf
+python-dotenv
+supabase
+tiktoken
+threadpoolctl
+wandb
+loguru
+scipy
+numpy
+jurigged

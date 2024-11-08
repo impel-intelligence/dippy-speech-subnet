@@ -1,0 +1,9 @@
+
+
+wheel
+setuptools
+bittensor==8.2.0
+
+
+loguru
+
