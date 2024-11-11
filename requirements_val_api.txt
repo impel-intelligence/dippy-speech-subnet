@@ -28,3 +28,5 @@ simplejson==3.19.3
 sortedcontainers==2.4.0
 scipy==1.14.1
 pydub==0.25.1
+black
+isort
