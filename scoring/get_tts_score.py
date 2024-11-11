@@ -1,5 +1,7 @@
 import random
 
+import numpy as np
+
 from scoring.common import EVALUATION_DATASET_SAMPLE_SIZE, MAX_GENERATION_LENGTH, MAX_SEQ_LEN
 from scoring.dataset import StreamedSyntheticDataset
 from scoring.entrypoint import write_to_json
@@ -44,21 +46,79 @@ def load_dataset():
         raise Exception(f"Error loading dataset: {failure_reason}")
 
 
+def apply_weights(base_score, text, weights):
+    """
+    Apply multiple weighting mechanisms to adjust the base score.
+    
+    :param base_score: The initial score before weighting.
+    :param text: The text input used to calculate length-based weights.
+    :param voice_description: The voice description to apply specific weights.
+    :param weights: A dictionary of weights to apply.
+    :return: Weighted score.
+    """
+    weighted_score = base_score
+    
+    # Apply text length weight if provided
+    if isinstance(weights, dict) and "text_length" in weights:
+        length_factor = len(text) / 100  # Normalize text length by dividing by 100
+        weighted_score *= weights["text_length"] * length_factor
+    
+    # Example to add other weights
+    # # Apply voice description weight if provided
+    # if "voice_description" in weights:
+    #     description_factor = len(voice_description) / 50  # Normalize by dividing by 50 as an example
+    #     weighted_score *= weights["voice_description"] * description_factor
+    
+    return weighted_score
+
+
 def get_tts_score(request: str):
+    """
+    Calculate and return the TTS scores with optional weighting.
+
+    :param request: The request object containing necessary details for scoring.
+    :return: A list of weighted scores.
+    """
+
+    # Define the weight dictionary; can be extended with additional weights.
+    weights = {'text_length': 1} 
 
     data = load_dataset()
 
     result = []
 
-    for item in data:
-        # Unpack data to get the elements directly
-        text, last_user_message, voice_description = item
+    for text, last_user_message, voice_description in data:
+        # Calculate the base score using the provided scoring workflow
+        base_score = scoring_workflow(request.repo_namespace, request.repo_name, text, voice_description)
 
-        human_similarity_score = scoring_workflow(request.repo_namespace, request.repo_name, text, voice_description)
-        
-        result.append(human_similarity_score)
+        # Apply weights if provided
+        weighted_score = apply_weights(base_score, text, weights )
 
-    import pdb; pdb.set_trace()
+        result.append(weighted_score)
+    
+    # Flatten the outputs to extract numerical values
+    flattened_scores = [score.item() for score in result]  # Extract single value from each array
+
+    # Normalize the scores to a 0-1 range
+    min_score = min(flattened_scores)
+    max_score = max(flattened_scores)
+
+     # Handle the edge case where all scores are the same
+    if min_score == max_score:
+        normalized_scores = [1.0 for _ in flattened_scores]  # Set to max of range if all scores are the same
+    else:
+        normalized_scores = [(score - min_score) / (max_score - min_score) for score in flattened_scores]
+
+    # Aggregate the normalized scores (e.g., using the average)
+    average_normalized_score = np.mean(normalized_scores)
+
+    # Scale to a 1-10 range
+    final_score = 1 + 9 * average_normalized_score  # Scale normalized average to 1-10
+
+
+    import pdb;
+
+    pdb.set_trace()
     # final_score = 0
     # result = {"final_score": final_score}
     # try:
