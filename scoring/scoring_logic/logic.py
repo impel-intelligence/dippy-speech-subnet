@@ -1,8 +1,7 @@
-import uuid
-
 import logging
 import os
 import tempfile
+import uuid
 
 import joblib
 import numpy as np
