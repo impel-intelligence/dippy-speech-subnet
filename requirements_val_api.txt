@@ -16,3 +16,15 @@ typer
 fastapi
 uvicorn
 jurigged
+git+https://github.com/huggingface/parler-tts.git
+gtts==2.5.3
+scikit-learn==1.5.2
+speechbrain==1.0.1
+funasr==1.1.12
+modelscope==1.19.0
+addict==2.4.0
+datasets==3.0.1
+simplejson==3.19.3
+sortedcontainers==2.4.0
+scipy==1.14.1
+pydub==0.25.1
