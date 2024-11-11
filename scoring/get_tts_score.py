@@ -1,24 +1,18 @@
-
-
-
 import random
 
 from scoring.common import EVALUATION_DATASET_SAMPLE_SIZE, MAX_GENERATION_LENGTH, MAX_SEQ_LEN
 from scoring.dataset import StreamedSyntheticDataset
-
-
 from scoring.entrypoint import write_to_json
-
+from scoring.scoring_logic.logic import scoring_workflow
 
 
 def load_dataset():
 
-
     print("Sampling dataset")
     try:
         dataset = StreamedSyntheticDataset(
-        max_input_len=MAX_SEQ_LEN - MAX_GENERATION_LENGTH - 200,
-        mock=True,
+            max_input_len=MAX_SEQ_LEN - MAX_GENERATION_LENGTH - 200,
+            mock=True,
         )
         sampled_data = dataset.sample_dataset(EVALUATION_DATASET_SAMPLE_SIZE, dummy=True)
         """
@@ -50,24 +44,35 @@ def load_dataset():
         raise Exception(f"Error loading dataset: {failure_reason}")
 
 
-def get_tts_score(
-    repo_name: str ,
-    repo_namespace: str,
-):
-    
-    final_score = 0
-    result = {"final_score": final_score}
-    try:
-        final_score = random.random()
-        result["final_score"] = final_score
-    except Exception as e:
-        print(f"error calculating score: {e}")
-        result["error"] = str(e)
+def get_tts_score(request: str):
+
+    data = load_dataset()
+
+    result = []
+
+    for item in data:
+        # Unpack data to get the elements directly
+        text, last_user_message, voice_description = item
+
+        human_similarity_score = scoring_workflow(request.repo_namespace, request.repo_name, text, voice_description)
         
-    write_to_json(result, "/tmp/tts_output.json")
-    
+        result.append(human_similarity_score)
+
+    import pdb; pdb.set_trace()
+    # final_score = 0
+    # result = {"final_score": final_score}
+    # try:
+    #     final_score = random.random()
+    #     result["final_score"] = final_score
+    # except Exception as e:
+    #     print(f"error calculating score: {e}")
+    #     result["error"] = str(e)
+
+    return result
+    # write_to_json(result, "/tmp/tts_output.json")
+
     # start_time = time.time()  # Start timing
-    # human_similarity_score = scoring_workflow_lda(repo_namespace, repo_name, text, voice_description)
+    human_similarity_score = scoring_workflow_lda(repo_namespace, repo_name, text, voice_description)
     # end_time = time.time()  # End timing
 
     # duration = end_time - start_time
@@ -75,4 +80,3 @@ def get_tts_score(
     # print(f"Score: {human_similarity_score[0][0]}")
 
     # result={"human_similarity_score": human_similarity_score[0][0]}
-

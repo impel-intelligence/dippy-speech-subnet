@@ -172,10 +172,10 @@ def calculate_human_similarity_score(audio_emo_vector, lda_model):
     return score
 
 
-def scoring_workflow_lda(repo_namespace, repo_name, text, voice_description):
+def scoring_workflow(repo_namespace, repo_name, text, voice_description):
     # Load the model for LDA
     lda_loaded = joblib.load(
-        "/home/pravin/dippy-bittensor-subnet-x/scoring/TTS/mos_cosine_analysis/Incentive-Mech/lda_model/human_vs_google_lda_model.pkl"
+        "/home/pravin/Desktop/Files/github.com/impel-intelligence/dippy-speech-subnet/scoring/scoring_logic/model/lda_model.pkl"
     )
 
     # Setup device
