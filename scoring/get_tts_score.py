@@ -1,11 +1,9 @@
-import random
+import logging
 
 import numpy as np
-import logging
 
 from scoring.common import EVALUATION_DATASET_SAMPLE_SIZE, MAX_GENERATION_LENGTH, MAX_SEQ_LEN
 from scoring.dataset import StreamedSyntheticDataset
-from scoring.entrypoint import write_to_json
 from scoring.scoring_logic.logic import scoring_workflow
 
 
