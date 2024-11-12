@@ -1,16 +1,14 @@
-import time
 import gc
 import json
 import sys
+import time
 import traceback
 from typing import Optional
-
 
 import torch
 import typer
 
 from scoring.common import EvaluateModelRequest
-from scoring.scoring_logic_lda.socring_logic import scoring_workflow_lda
 
 app = typer.Typer()
 
@@ -18,6 +16,7 @@ app = typer.Typer()
 def write_to_json(data: dict, filepath: str = "/tmp/output.json"):
     with open(filepath, "w") as f:
         json.dump(data, f, indent=2)
+    typer.echo(f" Final Score {data}")
     typer.echo(f"Results written to {filepath}")
 
 

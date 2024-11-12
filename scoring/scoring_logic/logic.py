@@ -1,18 +1,18 @@
-import uuid
-
-import logging
 import os
 import tempfile
+import uuid
 
 import joblib
 import numpy as np
-import pandas as pd
 import soundfile as sf
 import torch
+import torch.nn as nn
 from modelscope.pipelines import pipeline
 from modelscope.utils.constant import Tasks
 from parler_tts import ParlerTTSForConditionalGeneration
 from transformers import AutoTokenizer
+
+from huggingface_hub import hf_hub_download
 
 SPEAKERS = [
     {
@@ -98,6 +98,34 @@ SPEAKERS = [
 ]
 
 
+class EmotionMLPRegression(nn.Module):
+    def __init__(self, input_size=200, hidden_size=512, intermediate_size=256, dropout_prob=0.07):
+        super(EmotionMLPRegression, self).__init__()
+        self.fc1 = nn.Linear(input_size, hidden_size)
+        self.bn1 = nn.BatchNorm1d(hidden_size)
+        self.relu = nn.ReLU()
+        self.dropout = nn.Dropout(dropout_prob)
+
+        self.fc2 = nn.Linear(hidden_size, intermediate_size)
+        self.bn2 = nn.BatchNorm1d(intermediate_size)
+
+        self.fc3 = nn.Linear(intermediate_size, 1)
+
+    def forward(self, x):
+        out = self.fc1(x)
+        out = self.bn1(out)
+        out = self.relu(out)
+        out = self.dropout(out)
+
+        out = self.fc2(out)
+        out = self.bn2(out)
+        out = self.relu(out)
+        out = self.dropout(out)
+
+        out = self.fc3(out)
+        return out
+
+
 # Function to generate and save audio
 def generate_and_save_audio(speaker, prompt_text, sample_number, model, tokenizer, device, tempdir):
     try:
@@ -129,54 +157,60 @@ def generate_and_save_audio(speaker, prompt_text, sample_number, model, tokenize
         return None
 
 
-# Function to calculate score based on proximity to -1
-def calculate_left_proximity_score(scaled_data):
-    """Compute the score as a percentage (0 to 1) of how close x is to -1."""
-
-    # Ensure scaled_data is a numpy array
-    scaled_data = np.asarray(scaled_data)
-
-    # Input validation
-    if not np.all((-1 <= scaled_data) & (scaled_data <= 1)):
-        raise ValueError("All elements in scaled_data must be between -1 and 1 inclusive.")
-
-    # Calculate the score the closer it is to -1 the higher the score
-    score = (1 - scaled_data) / 2
-
-    return score
-
-    # Min-Max scaling function
-
-
-def min_max_scale(data, new_min, new_max):
-    min_val = -25  # determine min from sample data currently rough approx from jupyter notebook
-    max_val = 25  # determine max from sample data currently rough approx from jupyter notebook
-    return (data - min_val) / (max_val - min_val) * (new_max - new_min) + new_min
-
-
-def calculate_human_similarity_score(audio_emo_vector, lda_model):
+def calculate_human_similarity_score(audio_emo_vector, model_file_name, pca_file_name):
     """Calculate the human similarity score based on the audio emotion vector."""
 
-    # Transform the embeddings using the LDA model
-    new_data_transformed = lda_model.transform(np.array(audio_emo_vector).reshape(1, -1))
-    logging.debug(f"LDA Transformed Data: {new_data_transformed}")
+    # Ensure the input is a PyTorch tensor
+    if isinstance(audio_emo_vector, np.ndarray):
+        audio_emo_vector = torch.tensor(audio_emo_vector, dtype=torch.float32)
 
-    # Scale between -1 and 1
-    scaled_data = min_max_scale(new_data_transformed, -1, 1)
-    logging.debug(f"Scaled Data: {scaled_data}")
+    # Initialize the model
+    model = EmotionMLPRegression(input_size=200, hidden_size=512)
 
-    # Calculate Human similarity score
-    score = calculate_left_proximity_score(scaled_data)
-    logging.debug(f"Proximity Score to the left and therefore how human-like it is: {score}")
+    # Load the state dictionary into the model
+    model_path = hf_hub_download(
+        repo_id="DippyAI-Speech/Discriminator",
+        filename=model_file_name,  # Replace with the correct filename if different
+    )
+
+    # Load the state dictionary into the model
+    pca_model_path = hf_hub_download(
+        repo_id="DippyAI-Speech/PCA", filename=pca_file_name  # Replace with the correct filename if different
+    )
+
+    state_dict = torch.load(model_path, map_location=torch.device("cpu"))
+    model.load_state_dict(state_dict)
+
+    # Move the model to the appropriate device
+    device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+    model.to(device)
+
+    # Set the model to evaluation mode
+    model.eval()
+
+    # Load the PCA model
+    pca = joblib.load(pca_model_path)
+
+    # Ensure the input has the correct shape (batch dimension)
+    if audio_emo_vector.dim() == 1:
+        audio_emo_vector = audio_emo_vector.unsqueeze(0)  # Add batch dimension if needed
+
+    # Apply PCA transformation and move the tensor to the appropriate device
+    audio_emo_vector_pca = torch.tensor(pca.transform(audio_emo_vector.cpu().numpy()), dtype=torch.float32).to(
+        device
+    )  # Ensure the tensor is on the same device as the model
+
+    # Make a prediction
+    with torch.no_grad():  # Disable gradient calculation for inference
+        score = model(audio_emo_vector_pca)
 
     return score
 
 
-def scoring_workflow_lda(repo_namespace, repo_name, text, voice_description):
-    # Load the model for LDA
-    lda_loaded = joblib.load(
-        "/home/pravin/dippy-bittensor-subnet-x/scoring/TTS/mos_cosine_analysis/Incentive-Mech/lda_model/human_vs_google_lda_model.pkl"
-    )
+def scoring_workflow(repo_namespace, repo_name, text, voice_description):
+
+    DISCRIMINATOR_FILE_NAME = "discriminator_v1.0.pth"
+    MODEL_PCA_FILE_NAME = "discriminator_pca_v1.0.pkl"
 
     # Setup device
     device = "cuda:0" if torch.cuda.is_available() else "cpu"
@@ -188,20 +222,8 @@ def scoring_workflow_lda(repo_namespace, repo_name, text, voice_description):
     model = ParlerTTSForConditionalGeneration.from_pretrained(model_name).to(device)
     tokenizer = AutoTokenizer.from_pretrained(model_name)
 
-    # Feed the parler model text to generate audio and save it in tmp folder
-    # csv_file = "/home/pravin/dippy-bittensor-subnet-x/scoring/TTS/mos_cosine_analysis/20-sample-texts/200_text_samples_human.csv"
-    # samples_df = pd.read_csv(csv_file)
-
     # Initialize speaker index
     speaker_index = 0
-
-    # Select a specific row by index (e.g., the first row)
-    # row_index = 0  # Change this to select a different row if needed
-    # row = samples_df.iloc[row_index]
-
-    # # Generate a unique sample number
-    # sample_number = str(uuid.uuid4())
-    # prompt_text = text
 
     # Select a speaker from the list
     if speaker_index >= len(SPEAKERS):
@@ -230,14 +252,13 @@ def scoring_workflow_lda(repo_namespace, repo_name, text, voice_description):
             try:
                 # Extract emotion2vec vectors for audio file
                 rec_result = inference_pipeline(audio_path, granularity="utterance", extract_embedding=True)
-                # print(f"Emotion2Vector Model inference result: {rec_result}")
+
                 audio_emo_vector = rec_result[0]["feats"]  # Extract the embedding from the result
-                # print(f"Audio Emotion Vector: {audio_emo_vector}")
+
             except Exception as e:
                 print(f"Error processing audio file for {sample_number} at {audio_path}: {e}")
 
     # Calculate the human similarity score
-    # print(f"Calculating human similarity score for {sample_number}")
-    score = calculate_human_similarity_score(audio_emo_vector, lda_loaded)
+    score = calculate_human_similarity_score(audio_emo_vector, DISCRIMINATOR_FILE_NAME, MODEL_PCA_FILE_NAME)
 
     return score
