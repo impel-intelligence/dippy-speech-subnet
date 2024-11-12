@@ -12,6 +12,8 @@ from modelscope.utils.constant import Tasks
 from parler_tts import ParlerTTSForConditionalGeneration
 from transformers import AutoTokenizer
 
+from huggingface_hub import hf_hub_download
+
 SPEAKERS = [
     {
         "name": "Will",
@@ -155,7 +157,7 @@ def generate_and_save_audio(speaker, prompt_text, sample_number, model, tokenize
         return None
 
 
-def calculate_human_similarity_score(audio_emo_vector, model_path, pca_model_path):
+def calculate_human_similarity_score(audio_emo_vector, model_file_name, pca_file_name):
     """Calculate the human similarity score based on the audio emotion vector."""
 
     # Ensure the input is a PyTorch tensor
@@ -166,6 +168,16 @@ def calculate_human_similarity_score(audio_emo_vector, model_path, pca_model_pat
     model = EmotionMLPRegression(input_size=200, hidden_size=512)
 
     # Load the state dictionary into the model
+    model_path = hf_hub_download(
+        repo_id="DippyAI-Speech/Discriminator",
+        filename=model_file_name,  # Replace with the correct filename if different
+    )
+
+    # Load the state dictionary into the model
+    pca_model_path = hf_hub_download(
+        repo_id="DippyAI-Speech/PCA", filename=pca_file_name  # Replace with the correct filename if different
+    )
+
     state_dict = torch.load(model_path, map_location=torch.device("cpu"))
     model.load_state_dict(state_dict)
 
@@ -196,10 +208,9 @@ def calculate_human_similarity_score(audio_emo_vector, model_path, pca_model_pat
 
 
 def scoring_workflow(repo_namespace, repo_name, text, voice_description):
-    # Get path relative to the current file's location
-    base_dir = os.path.dirname(os.path.abspath(__file__))
-    DISCRIMINATOR_PATH = os.path.join(base_dir, "model/emotion_mlp_regression.pth")
-    MODEL_PCA_PATH = os.path.join(base_dir, "model/pca_model.pkl")
+
+    DISCRIMINATOR_FILE_NAME = "discriminator_v1.0.pth"
+    MODEL_PCA_FILE_NAME = "discriminator_pca_v1.0.pkl"
 
     # Setup device
     device = "cuda:0" if torch.cuda.is_available() else "cpu"
@@ -248,6 +259,6 @@ def scoring_workflow(repo_namespace, repo_name, text, voice_description):
                 print(f"Error processing audio file for {sample_number} at {audio_path}: {e}")
 
     # Calculate the human similarity score
-    score = calculate_human_similarity_score(audio_emo_vector, DISCRIMINATOR_PATH, MODEL_PCA_PATH)
+    score = calculate_human_similarity_score(audio_emo_vector, DISCRIMINATOR_FILE_NAME, MODEL_PCA_FILE_NAME)
 
     return score
