@@ -75,11 +75,11 @@ class Evaluator:
             },
         }
         if trace:
-            scoring_path = os.path.join(DEFAULT_HOME_DIR, "scoring")
-            self.volume_configuration[str(scoring_path)] = {
-                "bind": "/app/scoring",
-                "mode": "ro",
-            }
+            # scoring_path = os.path.join(DEFAULT_HOME_DIR, "scoring")
+            # self.volume_configuration[str(scoring_path)] = {
+            #     "bind": "/app/scoring",
+            #     "mode": "ro",
+            # }
             self.volume_configuration[DEFAULT_MODEL_CACHE_DIR] = {
                 "bind": "/app/model_cache_dir",
                 "mode": "rw",
@@ -132,24 +132,10 @@ class Evaluator:
             },
             working_dir='/app',
             device_requests=device_requests,
-            detach=True
+            volumes=volumes,
+            detach=True,
 
         )
-
-
-        # container = self.client.containers.run(
-        #     image='speech:latest',
-        #     command=command,
-        #     environment={
-        #         **env,
-        #         "PYTHONPATH": "/app"  # Add /app to PYTHONPATH
-        #     },
-        #     working_dir='/app',
-        #     detach=True,
-        #     stdout=True,
-        #     stderr=True
-        # )
-
 
 
 
@@ -166,44 +152,44 @@ class Evaluator:
         self.logger.debug(f"container_run_complete, {result}")
         print(f"container_run_complete, {result}")
 
-        # try:
-        #     bits, _ = container.get_archive(filepath)
+        try:
+            bits, _ = container.get_archive(filepath)
 
-        #     with io.BytesIO() as file_data:
+            with io.BytesIO() as file_data:
 
-        #         for chunk in bits:
+                for chunk in bits:
 
-        #             file_data.write(chunk)
+                    file_data.write(chunk)
 
-        #         file_data.seek(0)
+                file_data.seek(0)
 
-        #         with tarfile.open(fileobj=file_data) as tar:
+                with tarfile.open(fileobj=file_data) as tar:
 
-        #             content = tar.extractfile(filename).read().decode("utf-8")
+                    content = tar.extractfile(filename).read().decode("utf-8")
 
-        #             container_results = json.loads(content)
+                    container_results = json.loads(content)
 
-        #             self.logger.info(
-        #                 "container_run_results",
-        #                 details={
-        #                     "filepath": filepath,
-        #                     "content": content,
-        #                     "result": result,
-        #                     "container_id": container.id,
-        #                 },
-        #             )
+                    self.logger.info(
+                        "container_run_results",
+                        details={
+                            "filepath": filepath,
+                            "content": content,
+                            "result": result,
+                            "container_id": container.id,
+                        },
+                    )
 
-        #             if not self.trace:
-        #                 try:
-        #                     container.remove()
-        #                 except Exception as e:
-        #                     self.logger.error("container_remove_error")
-        #             return container_results
-        # except Exception as e:
-        #     self.logger.error("docker_error", error=e)
-        #     if not self.trace:
-        #         container.remove()
-        #     return {"error": str(e)}
+                    if not self.trace:
+                        try:
+                            container.remove()
+                        except Exception as e:
+                            self.logger.error("container_remove_error")
+                    return container_results
+        except Exception as e:
+            self.logger.error("docker_error", error=e)
+            if not self.trace:
+                container.remove()
+            return {"error": str(e)}
 
     def human_similarity_score(self, request: EvaluateModelRequest) -> Union[HumanSimilarityScore, RunError]:
         try:

@@ -46,7 +46,6 @@ COPY neurons/ neurons/
 COPY voice_validation_api/ voice_validation_api/
 
 
-
 # Copy project configuration files
 COPY README.md pyproject.toml ./
 COPY .git/ ./.git/
