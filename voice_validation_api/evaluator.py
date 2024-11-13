@@ -1,16 +1,17 @@
-import json
-import tarfile
-import io
-import os
-import time
 import copy
+import io
+import json
+import os
+import tarfile
+import time
+from typing import Any, Dict, Optional, Union
+
 import docker
 from pydantic import BaseModel
-from typing import Optional, Union, Dict, Any
 
-from scoring.common import EvaluateModelRequest
 from common.event_logger import EventLogger
 from common.scores import Scores
+from scoring.common import EvaluateModelRequest
 
 DEFAULT_IMAGE_NAME = "grader:latest"
 
@@ -90,8 +91,10 @@ class Evaluator:
                 "bind": "/app/model_cache_dir",
                 "mode": "rw",
             }
-            
+
         self.device_requests = [docker.types.DeviceRequest(device_ids=[gpu_ids], capabilities=[["gpu"]])]
+
+    
 
         self.env = {
             "OPENAI_API_KEY": os.environ.get("OPENAI_API_KEY"),
@@ -250,39 +253,38 @@ def entry():
             raise Exception(infrence_result.error)
         print(f"infrence_result : {infrence_result}")
 
-        eval_result = evaler.eval_score(req)
-        print(f"eval_result : {eval_result}")
-        if isinstance(eval_result, RunError):
-            raise Exception(eval_result.error)
-        
+        # eval_result = evaler.eval_score(req)
+        # print(f"eval_result : {eval_result}")
+        # if isinstance(eval_result, RunError):
+        #     raise Exception(eval_result.error)
 
-        scores_data = Scores()
-        scores_data.qualitative_score = eval_result.eval_score
-        scores_data.latency_score = eval_result.latency_score
-        scores_data.creativity_score = eval_result.creativity_score
-        scores_data.llm_size_score = eval_result.eval_model_size_score
-        scores_data.vibe_score = infrence_result.vibe_score
-        scores_data.coherence_score = infrence_result.coherence_score
+        # scores_data = Scores()
+        # scores_data.qualitative_score = eval_result.eval_score
+        # scores_data.latency_score = eval_result.latency_score
+        # scores_data.creativity_score = eval_result.creativity_score
+        # scores_data.llm_size_score = eval_result.eval_model_size_score
+        # scores_data.vibe_score = infrence_result.vibe_score
+        # scores_data.coherence_score = infrence_result.coherence_score
 
-        final_eval_score = (
-            scores_data.adjusted_q_score(
-                scores_data.qualitative_score,
-                scores_data.creativity_score,
-            )
-            * 0.82
-        )
-        final_model_size_score = scores_data.llm_size_score * 0.06
-        final_latency_score = scores_data.latency_score * 0.06
-        final_vibe_score = scores_data.vibe_score * 0.06
+        # final_eval_score = (
+        #     scores_data.adjusted_q_score(
+        #         scores_data.qualitative_score,
+        #         scores_data.creativity_score,
+        #     )
+        #     * 0.82
+        # )
+        # final_model_size_score = scores_data.llm_size_score * 0.06
+        # final_latency_score = scores_data.latency_score * 0.06
+        # final_vibe_score = scores_data.vibe_score * 0.06
 
-        total_score = final_eval_score + final_model_size_score + final_latency_score + final_vibe_score
-        print(f"final_model_size_score {final_model_size_score}")
-        print(f"final_latency_score {final_latency_score}")
-        print(f"final_vibe_score {final_vibe_score}")
-        print(f"final_eval_score {final_eval_score}")
-        print(f"coherence score: {scores_data.coherence_score}")
-        print(f"score pre coherence: {total_score}")
-        print(f"total score: {scores_data.calculate_total_score()}")
+        # total_score = final_eval_score + final_model_size_score + final_latency_score + final_vibe_score
+        # print(f"final_model_size_score {final_model_size_score}")
+        # print(f"final_latency_score {final_latency_score}")
+        # print(f"final_vibe_score {final_vibe_score}")
+        # print(f"final_eval_score {final_eval_score}")
+        # print(f"coherence score: {scores_data.coherence_score}")
+        # print(f"score pre coherence: {total_score}")
+        # print(f"total score: {scores_data.calculate_total_score()}")
     except Exception as e:
         print(e)
 
