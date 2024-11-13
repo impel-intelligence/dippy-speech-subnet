@@ -7,13 +7,14 @@ import time
 from typing import Any, Dict, Optional, Union
 
 import docker
+from dotenv import load_dotenv
 from pydantic import BaseModel
 
 from common.event_logger import EventLogger
 from common.scores import Scores
 from scoring.common import EvaluateModelRequest
 
-DEFAULT_IMAGE_NAME = "grader:latest"
+DEFAULT_IMAGE_NAME = "speech:latest"
 
 DEFAULT_HOME_DIR = os.environ.get("EVALUATOR_HOME_DIR", "/home/new_prod_user/dippy-voice-subnet")
 DEFAULT_MODEL_CACHE_DIR = os.environ.get("EVALUATOR_MODEL_CACHE_DIR", "/workdir/model_cache_dir")
@@ -30,17 +31,8 @@ class RunError(BaseModel):
     error: str
 
 
-class VibeScore(BaseModel):
-    vibe_score: float
-
-
-class CoherenceScore(BaseModel):
-    coherence_score: float
-
-
-class InferenceScore(BaseModel):
-    vibe_score: float
-    coherence_score: float
+class HumanSimilarityScore(BaseModel):
+    human_similarity_score: float
 
 
 class Evaluator:
@@ -51,7 +43,12 @@ class Evaluator:
         logger: EventLogger = EventLogger(),
         trace: bool = False,
     ):
-        self.client = docker.from_env(version="auto", timeout=600)
+        # self.client = docker.from_env(version="auto", timeout=600)
+        self.client = docker.DockerClient(
+            base_url='unix://var/run/docker.sock',  # Use the appropriate base URL for your system
+            version="auto",  # Automatically detect the server's version
+            timeout=600  # Set the API call timeout in seconds
+        )
         self.logger = logger
 
         if trace:
@@ -94,7 +91,8 @@ class Evaluator:
 
         self.device_requests = [docker.types.DeviceRequest(device_ids=[gpu_ids], capabilities=[["gpu"]])]
 
-    
+        # Load environment variables from the .env file
+        load_dotenv()
 
         self.env = {
             "OPENAI_API_KEY": os.environ.get("OPENAI_API_KEY"),
@@ -118,23 +116,48 @@ class Evaluator:
         self.logger.info("device_requests", device_requests=device_requests)
 
         env = copy.copy(self.env)
-        if job_type == "eval":
-            env["PYTORCH_CUDA_ALLOC_CONF"] = "expandable_segments:True"
-            env["VLLM_WORKER_MULTIPROC_METHOD"] = "_"
-        if job_type == "inference":
+        if job_type == "tts":
             env["PYTORCH_CUDA_ALLOC_CONF"] = "expandable_segments:False"
             env["VLLM_WORKER_MULTIPROC_METHOD"] = "spawn"
 
         self.logger.debug("env", env=env)
+        self.logger.info("image", image=self.image_name )
 
         container = self.client.containers.run(
-            self.image_name,
+            image=self.image_name,
             command=command,
-            volumes=volumes,
+            environment={
+                **env,
+                "PYTHONPATH": "/app"  # Add /app to PYTHONPATH
+            },
+            working_dir='/app',
             device_requests=device_requests,
-            environment=env,
-            detach=True,  # Run in background
+            detach=True
+
         )
+
+
+        # container = self.client.containers.run(
+        #     image='speech:latest',
+        #     command=command,
+        #     environment={
+        #         **env,
+        #         "PYTHONPATH": "/app"  # Add /app to PYTHONPATH
+        #     },
+        #     working_dir='/app',
+        #     detach=True,
+        #     stdout=True,
+        #     stderr=True
+        # )
+
+
+
+
+
+        # Log the output of the container in real-time
+        for log in container.logs(stream=True):
+            print(log.decode("utf-8"))  # Print to console or use `self.logger.info`
+
         filepath = f"/tmp/{job_type}_output.json"
         filename = f"{job_type}_output.json"
 
@@ -143,69 +166,57 @@ class Evaluator:
         self.logger.debug(f"container_run_complete, {result}")
         print(f"container_run_complete, {result}")
 
-        try:
-            bits, _ = container.get_archive(filepath)
-            with io.BytesIO() as file_data:
-                for chunk in bits:
-                    file_data.write(chunk)
-                file_data.seek(0)
-                with tarfile.open(fileobj=file_data) as tar:
-                    content = tar.extractfile(filename).read().decode("utf-8")
-                    container_results = json.loads(content)
-                    self.logger.info(
-                        "container_run_results",
-                        details={
-                            "filepath": filepath,
-                            "content": content,
-                            "result": result,
-                            "container_id": container.id,
-                        },
-                    )
-                    if not self.trace:
-                        try:
-                            container.remove()
-                        except Exception as e:
-                            self.logger.error("container_remove_error")
-                    return container_results
-        except Exception as e:
-            self.logger.error("docker_error", error=e)
-            if not self.trace:
-                container.remove()
-            return {"error": e}
+        # try:
+        #     bits, _ = container.get_archive(filepath)
 
-    def eval_score(self, request: EvaluateModelRequest) -> Union[EvaluationScore, RunError]:
+        #     with io.BytesIO() as file_data:
+
+        #         for chunk in bits:
+
+        #             file_data.write(chunk)
+
+        #         file_data.seek(0)
+
+        #         with tarfile.open(fileobj=file_data) as tar:
+
+        #             content = tar.extractfile(filename).read().decode("utf-8")
+
+        #             container_results = json.loads(content)
+
+        #             self.logger.info(
+        #                 "container_run_results",
+        #                 details={
+        #                     "filepath": filepath,
+        #                     "content": content,
+        #                     "result": result,
+        #                     "container_id": container.id,
+        #                 },
+        #             )
+
+        #             if not self.trace:
+        #                 try:
+        #                     container.remove()
+        #                 except Exception as e:
+        #                     self.logger.error("container_remove_error")
+        #             return container_results
+        # except Exception as e:
+        #     self.logger.error("docker_error", error=e)
+        #     if not self.trace:
+        #         container.remove()
+        #     return {"error": str(e)}
+
+    def human_similarity_score(self, request: EvaluateModelRequest) -> Union[HumanSimilarityScore, RunError]:
         try:
-            eval_result = self.run_docker_container(
-                job_type="eval",
+            human_similarity_result = self.run_docker_container(
+                job_type="tts",
                 request=request,
             )
-            if "error" in eval_result:
-                raise Exception(eval_result["error"])
-            if eval_result["completed"] is False:
+            if "error" in human_similarity_result:
+                raise Exception(human_similarity_result["error"])
+            if human_similarity_result["completed"] is False:
                 raise Exception("completion internal error")
-            score = EvaluationScore(
-                eval_score=eval_result["eval_score"],
-                latency_score=eval_result["latency_score"],
-                eval_model_size_score=eval_result["model_size_score"],
-                creativity_score=eval_result["creativity_score"],
-            )
-            return score
-        except Exception as e:
-            return RunError(error=str(e))
-
-    def inference_score(self, request: EvaluateModelRequest) -> Union[InferenceScore, RunError]:
-        try:
-            inference_result = self.run_docker_container(
-                job_type="inference",
-                request=request,
-            )
-            if "error" in inference_result:
-                raise Exception(inference_result["error"])
-            if inference_result["completed"] is False:
-                raise Exception("completion internal error")
-            score = InferenceScore(
-                vibe_score=inference_result["vibe_score"],
-                coherence_score=inference_result["coherence_score"],
+            score = HumanSimilarityScore(
+                human_similarity_score=human_similarity_result["final_score"],
             )
             return score
         except Exception as e:
@@ -248,10 +259,10 @@ def entry():
     try:
         evaler = Evaluator(image_name=image_name, trace=True, gpu_ids="0")
 
-        infrence_result = evaler.inference_score(req)
-        if isinstance(infrence_result, RunError):
-            raise Exception(infrence_result.error)
-        print(f"infrence_result : {infrence_result}")
+        human_similarity_result = evaler.human_similarity_score(req)
+        if isinstance(human_similarity_result, RunError):
+            raise Exception(human_similarity_result.error)
+        print(f"human_similarity_result : {human_similarity_result}")
 
         # eval_result = evaler.eval_score(req)
         # print(f"eval_result : {eval_result}")
