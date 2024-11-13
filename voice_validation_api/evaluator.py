@@ -3,7 +3,6 @@ import io
 import json
 import os
 import tarfile
-import time
 from typing import Any, Dict, Optional, Union
 
 import docker
@@ -45,9 +44,9 @@ class Evaluator:
     ):
         # self.client = docker.from_env(version="auto", timeout=600)
         self.client = docker.DockerClient(
-            base_url='unix://var/run/docker.sock',  # Use the appropriate base URL for your system
+            base_url="unix://var/run/docker.sock",  # Use the appropriate base URL for your system
             version="auto",  # Automatically detect the server's version
-            timeout=600  # Set the API call timeout in seconds
+            timeout=600,  # Set the API call timeout in seconds
         )
         self.logger = logger
 
@@ -121,24 +120,17 @@ class Evaluator:
             env["VLLM_WORKER_MULTIPROC_METHOD"] = "spawn"
 
         self.logger.debug("env", env=env)
-        self.logger.info("image", image=self.image_name )
+        self.logger.info("image", image=self.image_name)
 
         container = self.client.containers.run(
             image=self.image_name,
             command=command,
-            environment={
-                **env,
-                "PYTHONPATH": "/app"  # Add /app to PYTHONPATH
-            },
-            working_dir='/app',
+            environment={**env, "PYTHONPATH": "/app"},  # Add /app to PYTHONPATH
+            working_dir="/app",
             device_requests=device_requests,
             volumes=volumes,
             detach=True,
-
         )
-
-
-
 
         # Log the output of the container in real-time
         for log in container.logs(stream=True):
@@ -250,38 +242,9 @@ def entry():
             raise Exception(human_similarity_result.error)
         print(f"human_similarity_result : {human_similarity_result}")
 
-        # eval_result = evaler.eval_score(req)
-        # print(f"eval_result : {eval_result}")
-        # if isinstance(eval_result, RunError):
-        #     raise Exception(eval_result.error)
+        scores_data = Scores()
+        scores_data.human_similarity_score = human_similarity_result.human_similarity_score
 
-        # scores_data = Scores()
-        # scores_data.qualitative_score = eval_result.eval_score
-        # scores_data.latency_score = eval_result.latency_score
-        # scores_data.creativity_score = eval_result.creativity_score
-        # scores_data.llm_size_score = eval_result.eval_model_size_score
-        # scores_data.vibe_score = infrence_result.vibe_score
-        # scores_data.coherence_score = infrence_result.coherence_score
-
-        # final_eval_score = (
-        #     scores_data.adjusted_q_score(
-        #         scores_data.qualitative_score,
-        #         scores_data.creativity_score,
-        #     )
-        #     * 0.82
-        # )
-        # final_model_size_score = scores_data.llm_size_score * 0.06
-        # final_latency_score = scores_data.latency_score * 0.06
-        # final_vibe_score = scores_data.vibe_score * 0.06
-
-        # total_score = final_eval_score + final_model_size_score + final_latency_score + final_vibe_score
-        # print(f"final_model_size_score {final_model_size_score}")
-        # print(f"final_latency_score {final_latency_score}")
-        # print(f"final_vibe_score {final_vibe_score}")
-        # print(f"final_eval_score {final_eval_score}")
-        # print(f"coherence score: {scores_data.coherence_score}")
-        # print(f"score pre coherence: {total_score}")
-        # print(f"total score: {scores_data.calculate_total_score()}")
     except Exception as e:
         print(e)
 
