@@ -68,9 +68,8 @@ Given the complexity of creating a state of the art speech model, we plan to div
 
 **Miners** would use existing frameworks to fine tune models to improve upon the current SOTA open-source TTS model. The finetuned weights would be submitted to a shared Hugging Face pool. 
 
-**Validators** would evaluate the and assess model performance via our protocol and rank the submissions based on various metrics (empathy, conciseness etc). We will provide a suite of 
+**Validators** would evaluate and assess model performance via our protocol and rank the submissions based on various metrics (e.g. how natural it sounds, emotion matching, clarity etc.). We will provide a suite of 
 testing and benchmarking protocols with state-of-the-art datasets.
-
 
 
 ## Running Miners and Validators
@@ -88,15 +87,13 @@ cd dippy-bittensor-subnet
 pip install -e .
 ```
 #### Submitting a model
-As a miner, you're responsible for leveraging all methods available at your disposal, including but not limited to training new models, merging existing models (we recommend [MergeKit](https://github.com/arcee-ai/mergekit)), finetuning existing models, and so on to push roleplay LLMs forward.
+As a miner, you're responsible for leveraging all methods available at your disposal to finetune the provided base model.
 
 We outline the following criteria for Phase 1:
 
 - Models should be a fine-tune of the 880M Parler-TTS model.
 - Models MUST be Safetensors Format! Check upload_models.py for how the model upload precheck works.
-- (Recommended) Test the model with arbitrary inputs, before submitting, to check for NaNs.
-
-- **Models** we currently only support the [Parler TTS Mini v1 on Hugging Face](https://huggingface.co/parler-tts/parler-tts-mini-v1) 
+- **Model**: We currently use [Parler TTS Mini v1 on Hugging Face](https://huggingface.co/parler-tts/parler-tts-mini-v1) as our base model.
 
 Once you're happy with the performance of the model for the usecase of Roleplay, you can simply submit it to Hugging Face 🤗 and then use the following command:
 
