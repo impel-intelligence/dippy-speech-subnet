@@ -74,11 +74,6 @@ class Evaluator:
             },
         }
         if trace:
-            # scoring_path = os.path.join(DEFAULT_HOME_DIR, "scoring")
-            # self.volume_configuration[str(scoring_path)] = {
-            #     "bind": "/app/scoring",
-            #     "mode": "ro",
-            # }
             self.volume_configuration[DEFAULT_MODEL_CACHE_DIR] = {
                 "bind": "/app/model_cache_dir",
                 "mode": "rw",
