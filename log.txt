@@ -1,0 +1,165 @@
+ubuntu@ip-172-31-36-170:~/dippy-speech-subnet$ uv run python neurons/validator.py --wallet.name coldkey3 --wallet.hotkey hotkey3 --wandb-key WANDBKEY --subtensor.network test --wallet.path "/home/ubuntu/.bittensor/wallets" --immediate 
+2024-11-13 22:27:40.683 |     WARNING      | bittensor:loggingmachine.py:453 | Starting validator with config: 
+device: cuda
+blocks_per_epoch: 100
+dont_set_weights: false
+wait_for_inclusion: false
+offline: false
+immediate: true
+netuid: 231
+genesis: false
+dtype: bfloat16
+do_sample: false
+num_samples_per_eval: 64
+use_local_validation_api: false
+local_validation_api_port: 8000
+wandb_key: WANDBKEY
+subtensor:
+  network: test
+  chain_endpoint: wss://entrypoint-finney.opentensor.ai:443
+  _mock: false
+logging:
+  debug: false
+  trace: false
+  record_log: false
+  logging_dir: ~/.bittensor/miners
+wallet:
+  name: coldkey3
+  hotkey: hotkey3
+  path: /home/ubuntu/.bittensor/wallets
+axon:
+  port: 8091
+  ip: '[::]'
+  external_port: null
+  external_ip: null
+  max_workers: 10
+config: null
+strict: false
+no_version_checking: false
+
+2024-11-13 22:27:41.795 |     WARNING      | bittensor:loggingmachine.py:453 | dumping localmetadata: LocalMetadata(commit='232fde70', btversion='8.2.1', uid=0, coldkey='5GUJEfVCrWq4MkkFeMQe67dpsoe3zEYLvWcyYrr71wTKH28T', hotkey='5CfKqD1oEC673etJS58g4xG8eW58278m63aqF5QPiFkAQhot')
+wandb: Using wandb-core as the SDK backend.  Please refer to https://wandb.me/wandb-core for more information.
+wandb: W&B API key is configured. Use `wandb login --relogin` to force relogin
+2024-11-13 22:27:42.121 |      ERROR       | bittensor:loggingmachine.py:458 | API key must be 40 characters long, yours was 8
+2024-11-13 22:27:42.121 |      ERROR       | bittensor:loggingmachine.py:458 | Failed to login to WandB. Your run will not be logged.
+2024-11-13 22:27:42.121 |     WARNING      | bittensor:loggingmachine.py:453 | wandb locked in
+2024-11-13 22:27:42.449 |     WARNING      | bittensor:loggingmachine.py:453 | Failed to configure WandB. Your run will not be logged.
+2024-11-13 22:27:42.449 |     WARNING      | bittensor:loggingmachine.py:453 | failed to upsert bucket: returned error 401 Unauthorized: {"errors":[{"message":"user is not logged in","path":["upsertBucket"],"extensions":{"code":"PERMISSION_ERROR"}}],"data":{"upsertBucket":null}}
+2024-11-13 22:27:42.449 |      ERROR       | bittensor:loggingmachine.py:458 | Could not initialize event logger: The directory /dev is not writable. Event logging is optional and used for diagnostic purposes. If you do not know what this is for, that's ok.
+2024-11-13 22:27:42.449 |     WARNING      | bittensor:loggingmachine.py:453 | Running step with ttl 1200
+2024-11-13 22:27:42.653 |     WARNING      | bittensor:loggingmachine.py:453 | get_metadata for uid=1 hotkey=5FcXGnAp3XZ9JX9orUSTmZ8XQJuKYKLQ2pDZ4biyRFktKu7f netuid=231
+2024-11-13 22:27:44.784 |      ERROR       | bittensor:loggingmachine.py:458 | skip uid=1 no model_data
+2024-11-13 22:27:44.784 |     WARNING      | bittensor:loggingmachine.py:453 | get_metadata for uid=2 hotkey=5CAMugcByWPuKUbRnfUQQMAA2Rv4LJpM5381MmRM5oMkuiVd netuid=231
+2024-11-13 22:27:45.767 |      ERROR       | bittensor:loggingmachine.py:458 | could not update for uid=2:5CAMugcByWPuKUbRnfUQQMAA2Rv4LJpM5381MmRM5oMkuiVd 'ModelId' object has no attribute 'chat_template'
+2024-11-13 22:27:45.770 |      ERROR       | bittensor:loggingmachine.py:458 | Traceback: Traceback (most recent call last):
+  File "/home/ubuntu/dippy-speech-subnet/neurons/validator.py", line 588, in process_uid
+    hotkey_hash_passes = self.model_id_matches_hotkey(model_data.miner_model_id, hotkey)
+  File "/home/ubuntu/dippy-speech-subnet/neurons/validator.py", line 695, in model_id_matches_hotkey
+    namespace=model_id.namespace, name=model_id.name, chat_template=model_id.chat_template, hotkey=hotkey
+  File "/home/ubuntu/dippy-speech-subnet/.venv/lib/python3.10/site-packages/pydantic/main.py", line 856, in __getattr__
+    raise AttributeError(f'{type(self).__name__!r} object has no attribute {item!r}')
+AttributeError: 'ModelId' object has no attribute 'chat_template'. Did you mean: 'config_template'?
+
+2024-11-13 22:27:45.770 |     WARNING      | bittensor:loggingmachine.py:453 | get_metadata for uid=0 hotkey=5CfKqD1oEC673etJS58g4xG8eW58278m63aqF5QPiFkAQhot netuid=231
+2024-11-13 22:27:46.811 |      ERROR       | bittensor:loggingmachine.py:458 | skip uid=0 no model_data
+2024-11-13 22:27:46.811 |     WARNING      | bittensor:loggingmachine.py:453 | invalid_uids : [1, 2, 0]
+2024-11-13 22:27:46.811 |     WARNING      | bittensor:loggingmachine.py:453 | all_uids : 3 invalid uids: 3 cutoff_block : 3230064
+                                 Step                                 
+┏━━━━━┳━━━━━━━┳━━━━━━━━━━┳━━━━━━━━━━━┳━━━━━━━━━┳━━━━━━━━━━━━━━━━━━━━━┓
+┃ uid ┃ score ┃ win_rate ┃ win_total ┃ weights ┃ block               ┃
+┡━━━━━╇━━━━━━━╇━━━━━━━━━━╇━━━━━━━━━━━╇━━━━━━━━━╇━━━━━━━━━━━━━━━━━━━━━┩
+│   0 │ 0     │ -inf     │ 0         │ 0.0     │ 9223372036854775807 │
+│   1 │ 0     │ -inf     │ 0         │ 0.0     │ 9223372036854775807 │
+│   2 │ 0     │ -inf     │ 0         │ 0.0     │ 9223372036854775807 │
+└─────┴───────┴──────────┴───────────┴─────────┴─────────────────────┘
+Weights > 0.001 
+┏━━━━━┳━━━━━━━━┓
+┃ uid ┃ weight ┃
+┡━━━━━╇━━━━━━━━┩
+└─────┴────────┘
+2024-11-13 22:27:46.819 |      ERROR       | bittensor:loggingmachine.py:458 | could not remote log: HTTPConnectionPool(host='localhost', port=7001): Max retries exceeded with url: /event_report (Caused by NewConnectionError('<urllib3.connection.HTTPConnection object at 0x719b93b51270>: Failed to establish a new connection: [Errno 111] Connection refused')). This error is ok to ignore if you are a validator
+2024-11-13 22:27:46.819 |     WARNING      | bittensor:loggingmachine.py:453 | Finished running step.
+/home/ubuntu/dippy-speech-subnet/neurons/validator.py:446: UserWarning: To copy construct from a tensor, it is recommended to use sourceTensor.clone().detach() or sourceTensor.clone().detach().requires_grad_(True), rather than torch.tensor(sourceTensor).
+  adjusted_weights = torch.tensor(cpu_weights)
+2024-11-13 22:27:48.053 |      ERROR       | bittensor:loggingmachine.py:458 | error adjusting for vtrust: expected np.ndarray (got Tensor)
+2024-11-13 22:27:49.232 |      ERROR       | bittensor:loggingmachine.py:458 | Subtensor returned `SubstrateRequestException(Priority is too low: (18446744073709551615 vs 18446744073709551615))` error. This means: `The transaction has too low priority to replace another transaction already in the pool.`.
+2024-11-13 22:27:50.451 |      ERROR       | bittensor:loggingmachine.py:458 | Subtensor returned `SubstrateRequestException(Priority is too low: (18446744073709551615 vs 18446744073709551615))` error. This means: `The transaction has too low priority to replace another transaction already in the pool.`.
+2024-11-13 22:27:52.669 |      ERROR       | bittensor:loggingmachine.py:458 | Subtensor returned `SubstrateRequestException(Priority is too low: (18446744073709551615 vs 18446744073709551615))` error. This means: `The transaction has too low priority to replace another transaction already in the pool.`.
+2024-11-13 22:27:52.669 |      ERROR       | bittensor:loggingmachine.py:458 | ❌ Failed.: Error: {'code': 1014, 'message': 'Priority is too low: (18446744073709551615 vs 18446744073709551615)', 'data': 'The transaction has too low priority to replace another transaction already in the pool.'}
+2024-11-13 22:27:53.016 |      ERROR       | bittensor:loggingmachine.py:458 | Subtensor returned `SubstrateRequestException(Priority is too low: (18446744073709551615 vs 18446744073709551615))` error. This means: `The transaction has too low priority to replace another transaction already in the pool.`.
+2024-11-13 22:27:54.233 |      ERROR       | bittensor:loggingmachine.py:458 | Subtensor returned `SubstrateRequestException(Priority is too low: (18446744073709551615 vs 18446744073709551615))` error. This means: `The transaction has too low priority to replace another transaction already in the pool.`.
+2024-11-13 22:27:56.450 |      ERROR       | bittensor:loggingmachine.py:458 | Subtensor returned `SubstrateRequestException(Priority is too low: (18446744073709551615 vs 18446744073709551615))` error. This means: `The transaction has too low priority to replace another transaction already in the pool.`.
+2024-11-13 22:27:56.450 |      ERROR       | bittensor:loggingmachine.py:458 | ❌ Failed.: Error: {'code': 1014, 'message': 'Priority is too low: (18446744073709551615 vs 18446744073709551615)', 'data': 'The transaction has too low priority to replace another transaction already in the pool.'}
+2024-11-13 22:27:56.795 |      ERROR       | bittensor:loggingmachine.py:458 | Subtensor returned `SubstrateRequestException(Priority is too low: (18446744073709551615 vs 18446744073709551615))` error. This means: `The transaction has too low priority to replace another transaction already in the pool.`.
+2024-11-13 22:27:58.013 |      ERROR       | bittensor:loggingmachine.py:458 | Subtensor returned `SubstrateRequestException(Priority is too low: (18446744073709551615 vs 18446744073709551615))` error. This means: `The transaction has too low priority to replace another transaction already in the pool.`.
+2024-11-13 22:28:00.232 |      ERROR       | bittensor:loggingmachine.py:458 | Subtensor returned `SubstrateRequestException(Priority is too low: (18446744073709551615 vs 18446744073709551615))` error. This means: `The transaction has too low priority to replace another transaction already in the pool.`.
+2024-11-13 22:28:00.232 |      ERROR       | bittensor:loggingmachine.py:458 | ❌ Failed.: Error: {'code': 1014, 'message': 'Priority is too low: (18446744073709551615 vs 18446744073709551615)', 'data': 'The transaction has too low priority to replace another transaction already in the pool.'}
+2024-11-13 22:28:00.582 |      ERROR       | bittensor:loggingmachine.py:458 | Subtensor returned `SubstrateRequestException(Invalid Transaction)` error. This means: `Transaction is outdated`.
+2024-11-13 22:28:01.933 |     WARNING      | bittensor:loggingmachine.py:453 | successfully_set_weights
+  All Weights   
+┏━━━━━┳━━━━━━━━┓
+┃ uid ┃ weight ┃
+┡━━━━━╇━━━━━━━━┩
+│   0 │ 0.0    │
+│   1 │ 0.0    │
+│   2 │ 0.0    │
+└─────┴────────┘
+       Weight Setting Status        
+┏━━━━━━━━━━━━━━━━━━━━━━━━━━┳━━━━━━━┓
+┃ Status                   ┃ Value ┃
+┡━━━━━━━━━━━━━━━━━━━━━━━━━━╇━━━━━━━┩
+│ successfully_set_weights │ True  │
+│ failed_set_weights       │ False │
+│ wait_for_inclusion       │ False │
+└──────────────────────────┴───────┘
+2024-11-13 22:28:01.939 |      ERROR       | bittensor:loggingmachine.py:458 | could not remote log: HTTPConnectionPool(host='localhost', port=7001): Max retries exceeded with url: /event_report (Caused by NewConnectionError('<urllib3.connection.HTTPConnection object at 0x719ba17dca00>: Failed to establish a new connection: [Errno 111] Connection refused')). This error is ok to ignore if you are a validator
+2024-11-13 22:28:01.939 |     WARNING      | bittensor:loggingmachine.py:453 | weights_set_success True error_msg None
+^C2024-11-13 22:28:05.282 |     WARNING      | bittensor:loggingmachine.py:453 | KeyboardInterrupt caught
+^CException ignored in atexit callback: <function _exit_function at 0x719bac930670>
+Traceback (most recent call last):
+  File "/usr/lib/python3.10/multiprocessing/util.py", line 357, in _exit_function
+    p.join()
+  File "/usr/lib/python3.10/multiprocessing/process.py", line 149, in join
+    res = self._popen.wait(timeout)
+  File "/usr/lib/python3.10/multiprocessing/popen_fork.py", line 43, in wait
+    return self.poll(os.WNOHANG if timeout == 0.0 else 0)
+  File "/usr/lib/python3.10/multiprocessing/popen_fork.py", line 27, in poll
+    pid, sts = os.waitpid(self.pid, flag)
+KeyboardInterrupt: 
+Task exception was never retrieved
+future: <Task finished name='Task-1' coro=<Validator.run() done, defined at /home/ubuntu/dippy-speech-subnet/neurons/validator.py:920> exception=SystemExit(None)>
+Traceback (most recent call last):
+  File "/home/ubuntu/dippy-speech-subnet/neurons/validator.py", line 935, in run
+    metagraph_synced = await self.try_sync_metagraph(ttl=120)
+  File "/home/ubuntu/dippy-speech-subnet/neurons/validator.py", line 658, in try_sync_metagraph
+    process.join(timeout=ttl)
+  File "/usr/lib/python3.10/multiprocessing/process.py", line 149, in join
+    res = self._popen.wait(timeout)
+  File "/usr/lib/python3.10/multiprocessing/popen_fork.py", line 40, in wait
+    if not wait([self.sentinel], timeout):
+  File "/usr/lib/python3.10/multiprocessing/connection.py", line 931, in wait
+    ready = selector.select(timeout)
+  File "/usr/lib/python3.10/selectors.py", line 416, in select
+    fd_event_list = self._selector.poll(timeout)
+KeyboardInterrupt
+
+During handling of the above exception, another exception occurred:
+
+Traceback (most recent call last):
+  File "/home/ubuntu/dippy-speech-subnet/.venv/lib/python3.10/site-packages/nest_asyncio.py", line 30, in run
+    return loop.run_until_complete(task)
+  File "/home/ubuntu/dippy-speech-subnet/.venv/lib/python3.10/site-packages/nest_asyncio.py", line 92, in run_until_complete
+    self._run_once()
+  File "/home/ubuntu/dippy-speech-subnet/.venv/lib/python3.10/site-packages/nest_asyncio.py", line 133, in _run_once
+    handle._run()
+  File "/usr/lib/python3.10/asyncio/events.py", line 80, in _run
+    self._context.run(self._callback, *self._args)
+  File "/usr/lib/python3.10/asyncio/tasks.py", line 315, in __wakeup
+    self.__step()
+  File "/usr/lib/python3.10/asyncio/tasks.py", line 232, in __step
+    result = coro.send(None)
+  File "/home/ubuntu/dippy-speech-subnet/neurons/validator.py", line 954, in run
+    exit()
+  File "/usr/lib/python3.10/_sitebuiltins.py", line 26, in __call__
+    raise SystemExit(code)
+SystemExit: None

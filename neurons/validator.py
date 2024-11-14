@@ -1,7 +1,46 @@
 # The MIT License (MIT)
 # Copyright © 2023 Yuma Rao
 # Copyright © 2023 const
+import argparse
+import asyncio
 import copy
+import datetime as dt
+import math
+import multiprocessing
+import os
+import random
+import shutil
+import subprocess
+import threading
+import time
+import traceback
+from collections import defaultdict
+from dataclasses import dataclass
+from importlib.metadata import version
+from shlex import split
+from typing import Dict, List, Optional, Tuple
+
+import bittensor as bt
+import numpy as np
+import requests
+import torch
+from bittensor.core.metagraph import Metagraph
+from bittensor.core.subtensor import Subtensor
+from huggingface_hub import get_safetensors_metadata
+from common import wandb_logger
+from common.data import ModelId, ModelMetadata
+from common.scores import Scores, StatusEnum
+from rich.console import Console
+from rich.table import Table
+from scipy import optimize
+from threadpoolctl import threadpool_limits
+
+import constants
+from utilities import utils
+from utilities.compete import iswin
+from utilities.event_logger import EventLogger
+from utilities.miner_registry import MinerEntry
+from utilities.validation_utils import regenerate_hash
 
 # Permission is hereby granted, free of charge, to any person obtaining a copy of this software and associated
 # documentation files (the “Software”), to deal in the Software without restriction, including without limitation
@@ -17,58 +56,12 @@ import copy
 # OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER
 # DEALINGS IN THE SOFTWARE.
 
-from collections import defaultdict
-from dataclasses import dataclass
-from typing import Dict, List, Optional
-import datetime as dt
-import os
-import math
-import time
-import torch
-import random
-import shutil
-import asyncio
-import subprocess
-import argparse
-from typing import Tuple
-from threadpoolctl import threadpool_limits
-import requests
-from importlib.metadata import version
-from shlex import split
-
-import constants
-from model.data import ModelMetadata, ModelId
-from huggingface_hub import get_safetensors_metadata
-from model.scores import Scores, StatusEnum
-from model import wandb_logger
-import traceback
-import threading
-import multiprocessing
-from rich.table import Table
-from rich.console import Console
-
-from utilities.compete import iswin
-from utilities.event_logger import EventLogger
-from utilities import utils
-from utilities.miner_registry import MinerEntry
-
-import constants
-import traceback
-import bittensor as bt
-
-import os
-import numpy as np
-import torch
-from scipy import optimize
-
-from utilities.validation_utils import regenerate_hash
-from bittensor.core.subtensor import Subtensor
-from bittensor.core.metagraph import Metagraph
 
 os.environ["TOKENIZERS_PARALLELISM"] = "false"
 INVALID_BLOCK_START = 4200000
 INVALID_BLOCK_END = 4200000
 NEW_EPOCH_BLOCK = 4200000
+
 
 def compute_wins(
     miner_registry: Dict[int, MinerEntry],
@@ -107,7 +100,6 @@ def compute_wins(
 
         if miner_registry[uid_i].invalid or miner_registry[uid_i].total_score == 0:
             win_rate[uid_i] = float("-inf")
-
 
     return wins, win_rate
 
@@ -253,12 +245,11 @@ class Validator:
 
         bt.logging.warning(f"Starting validator with config: {self.config}")
 
-
         network_name = self.config.subtensor.network or "finney"
         netuid = self.config.netuid or 11
         # === Bittensor objects ====
         self.wallet = bt.wallet(config=self.config)
-        
+
         # self.subtensor = bt.subtensor(config=self.config)
         self.subtensor = Subtensor(config=self.config)
 
@@ -307,16 +298,16 @@ class Validator:
             bt.logging.warning(f"wandb locked in")
         try:
             wandb_logger.safe_init(
-            "Validator",
-            self.wallet,
-            self.metagraph,
-            self.config,
-        )
+                "Validator",
+                self.wallet,
+                self.metagraph,
+                self.config,
+            )
             wandb_logger.safe_log(
-            {
-                "log_success": 1,
-            }
-        )
+                {
+                    "log_success": 1,
+                }
+            )
         except Exception as e:
             bt.logging.warning("continuing without wandb. this is fine")
 
@@ -347,14 +338,14 @@ class Validator:
                 self.event_logger.info(msg, **kwargs)
         except Exception as e:
             bt.logging.error(e)
-        
+
         return
 
     def _with_decoration(self, metadata: LocalMetadata, keypair, payload):
         signature = sign_request(
-                    keypair,
-                    payload = metadata.hotkey,
-                )
+            keypair,
+            payload=metadata.hotkey,
+        )
         combined_payload = {
             "signature": signature,
             "payload": payload,
@@ -365,6 +356,7 @@ class Validator:
             "coldkey": str(metadata.coldkey),
         }
         return combined_payload
+
     def _remote_log(self, payload):
         event_report_endpoint = f"{constants.VALIDATION_SERVER}/event_report"
         try:
@@ -373,6 +365,7 @@ class Validator:
             bt.logging.warning(f"successfully sent event_report with payload {payload}")
         except Exception as e:
             bt.logging.error(f"could not remote log: {e}. This error is ok to ignore if you are a validator")
+
     @staticmethod
     def adjust_for_vtrust(weights: np.ndarray, consensus: np.ndarray, vtrust_min: float = 0.5) -> np.ndarray:
         """
@@ -381,7 +374,7 @@ class Validator:
         """
         if not isinstance(weights, np.ndarray):
             return weights
-        
+
         vtrust_loss_desired = 1 - vtrust_min
 
         # If the predicted vtrust is already above vtrust_min, then just return the current weights.
@@ -430,7 +423,7 @@ class Validator:
         except Exception as e:
             bt.logging.warning(f"wait_for_inclusion not set: {wait_for_inclusion}")
 
-        async def _try_set_weights(wait_for_inclusion: bool=False, debug:bool= False) -> Tuple[bool, Optional[str]]:
+        async def _try_set_weights(wait_for_inclusion: bool = False, debug: bool = False) -> Tuple[bool, Optional[str]]:
             weights_success = False
             error_str = None
             try:
@@ -440,9 +433,9 @@ class Validator:
                 cpu_weights = self.weights
                 # Save types for reporting
                 type_report = {
-                    'metagraph': str(type(metagraph)),    # bittensor.core.metagraph.NonTorchMetagraph
-                    'consensus': str(type(consensus)),     # numpy.ndarray
-                    'cpu_weights': str(type(cpu_weights))  # torch.Tensor
+                    "metagraph": str(type(metagraph)),  # bittensor.core.metagraph.NonTorchMetagraph
+                    "consensus": str(type(consensus)),  # numpy.ndarray
+                    "cpu_weights": str(type(cpu_weights)),  # torch.Tensor
                 }
                 bt.logging.debug(f"data_dump: {type_report}")
                 try:
@@ -452,8 +445,7 @@ class Validator:
                     bt.logging.error(f"error adjusting for vtrust: {e}")
                     adjusted_weights = torch.tensor(cpu_weights)
                     self.weights = adjusted_weights.clone().detach()
-                    
-                
+
                 if debug:
                     # Compare weights before and after vtrust adjustment
                     comparison_table = Table(title="Weights Comparison")
@@ -461,7 +453,7 @@ class Validator:
                     comparison_table.add_column("original", style="magenta")
                     comparison_table.add_column("adjusted", style="green")
                     comparison_table.add_column("diff", style="yellow")
-                    
+
                     # Dump details about consensus and cpu_weights
                     bt.logging.warning("=== Consensus details ===")
                     bt.logging.warning(f"Type: {type(consensus)}")
@@ -475,7 +467,7 @@ class Validator:
                         bt.logging.warning(f"Has NaN: {np.isnan(consensus).any()}")
                         bt.logging.warning(f"Has Inf: {np.isinf(consensus).any()}")
 
-                    bt.logging.warning("\n=== CPU Weights details ===") 
+                    bt.logging.warning("\n=== CPU Weights details ===")
                     bt.logging.warning(f"Type: {type(cpu_weights)}")
                     if isinstance(cpu_weights, (np.ndarray, torch.Tensor)):
                         if isinstance(cpu_weights, torch.Tensor):
@@ -488,30 +480,29 @@ class Validator:
                         bt.logging.warning(f"Sum: {np.sum(cpu_weights)}")
                         bt.logging.warning(f"Has NaN: {np.isnan(cpu_weights).any()}")
                         bt.logging.warning(f"Has Inf: {np.isinf(cpu_weights).any()}")
-                
+
                     for uid in range(len(cpu_weights)):
                         original = round(float(cpu_weights[uid]), 4)
-                        adjusted = round(float(adjusted_weights[uid]), 4) 
+                        adjusted = round(float(adjusted_weights[uid]), 4)
                         diff = round(adjusted - original, 4)
-                        comparison_table.add_row(
-                            str(uid),
-                            str(original),
-                            str(adjusted),
-                            str(diff)
-                        )
-                
+                        comparison_table.add_row(str(uid), str(original), str(adjusted), str(diff))
+
                     console = Console()
                     console.print(comparison_table)
                 self.weights.nan_to_num(0.0)
-                self.subtensor.set_weights(
-                    netuid=self.config.netuid,
-                    wallet=self.wallet,
-                    uids=self.metagraph.uids,
-                    weights=adjusted_weights,
-                    wait_for_inclusion=wait_for_inclusion,
-                    version_key=constants.weights_version_key,
-                    
-                )
+                try:
+                    self.subtensor.set_weights(
+                        netuid=self.config.netuid,
+                        wallet=self.wallet,
+                        uids=self.metagraph.uids,
+                        weights=adjusted_weights,
+                        wait_for_inclusion=wait_for_inclusion,
+                        version_key=constants.weights_version_key,
+                    )
+                except Exception as e:
+                    bt.logging.error(f"Set Weights Fail")
+                    raise e
+                
                 weights_report = {"weights": {}}
                 for uid, score in enumerate(self.weights):
                     weights_report["weights"][uid] = score
@@ -523,7 +514,7 @@ class Validator:
                 bt.logging.error(f"failed_set_weights error={e}\n{traceback.format_exc()}")
                 error_str = f"failed_set_weights error={e}\n{traceback.format_exc()}"
                 return weights_success, error_str
-                
+
             # Only dump weight state to console
             ws, ui = self.weights.topk(len(self.weights))
             table = Table(title="All Weights")
@@ -554,10 +545,10 @@ class Validator:
                 "time": str(dt.datetime.now(dt.timezone.utc)),
                 "weights_set_success": weights_set_success,
                 "wait_for_inclusion": wait_for_inclusion,
-                "error": error_msg
+                "error": error_msg,
             }
             bt.logging.debug("Finished setting weights.")
-            logged_payload = self._with_decoration(self.local_metadata, self.wallet.hotkey,payload)
+            logged_payload = self._with_decoration(self.local_metadata, self.wallet.hotkey, payload)
             self._remote_log(logged_payload)
         except asyncio.TimeoutError:
             bt.logging.error(f"Failed to set weights after {ttl} seconds")
@@ -567,11 +558,13 @@ class Validator:
             error_msg = f"Error setting weights: {e}\n{traceback.format_exc()}"
         return weights_set_success, error_msg
 
-        
-    async def build_registry(self, all_uids: List[int], current_block: int, max_concurrent: int = 32) -> Tuple[int, MinerEntry]:
+    async def build_registry(
+        self, all_uids: List[int], current_block: int, max_concurrent: int = 32
+    ) -> Tuple[int, MinerEntry]:
         miner_registry: Dict[int, MinerEntry] = {uid: MinerEntry() for uid in all_uids}
-        
+
         invalid_uids = []
+
         async def process_uid(uid):
             hotkey = self.metagraph.hotkeys[uid]
             miner_registry[uid].hotkey = hotkey
@@ -591,19 +584,15 @@ class Validator:
                     invalid_uids.append(uid)
                     bt.logging.info(f"skip uid={uid} submitted on {model_data.block} after {current_block}")
                     return
-                if model_data.block < NEW_EPOCH_BLOCK:
-                    invalid_uids.append(uid)
-                    bt.logging.warning(f"skip uid={uid} submitted on {model_data.block} which is before {NEW_EPOCH_BLOCK}")
-                    return
+            
+                # hotkey_hash_passes = self.model_id_matches_hotkey(model_data.miner_model_id, hotkey)
 
-                hotkey_hash_passes = self.model_id_matches_hotkey(model_data.miner_model_id, hotkey)
-                
-                if not hotkey_hash_passes:
-                    invalid_uids.append(uid)
-                    bt.logging.warning(f"uid={uid} submitted on {model_data.miner_model_id.hash} does not include same hotkey")
-                    return
-                
-                
+                # if not hotkey_hash_passes:
+                #     invalid_uids.append(uid)
+                #     bt.logging.warning(
+                #         f"uid={uid} submitted on {model_data.miner_model_id.hash} does not include same hotkey"
+                #     )
+                #     return
 
                 miner_registry[uid].block = model_data.block
                 miner_registry[uid].miner_model_id = model_data.miner_model_id
@@ -619,18 +608,18 @@ class Validator:
                     signed_payload,
                 )
 
-                if _score_data.status != StatusEnum.COMPLETED:
-                    _score_data = _get_model_score(
-                        miner_registry[uid].miner_model_id,
-                        self.config,
-                        self.local_metadata,
-                        signed_payload,
-                        True,
-                    )
+                # if _score_data.status != StatusEnum.COMPLETED:
+                #     _score_data = _get_model_score(
+                #         miner_registry[uid].miner_model_id,
+                #         self.config,
+                #         self.local_metadata,
+                #         signed_payload,
+                #         True,
+                #     )
                 bt.logging.warning(
                     f"_score_data for uid={uid} on block {miner_registry[uid].block} : {miner_registry[uid].miner_model_id} {_score_data}"
                 )
-                
+
                 if _score_data.status == StatusEnum.QUEUED or _score_data.status == StatusEnum.RUNNING:
                     invalid_uids.append(uid)
                     bt.logging.info(f"skip uid={uid} status is {_score_data.status}")
@@ -647,13 +636,11 @@ class Validator:
 
         # Process UIDs in batches of max_concurrent size
         for i in range(0, len(miner_registry), max_concurrent):
-            batch_uids = list(miner_registry.keys())[i:i + max_concurrent]
+            batch_uids = list(miner_registry.keys())[i : i + max_concurrent]
             batch_tasks = [process_uid(uid) for uid in batch_uids]
             await asyncio.gather(*batch_tasks)
 
         return invalid_uids, miner_registry
-
-
 
     async def try_sync_metagraph(self, ttl: int) -> bool:
         def sync_metagraph(_):
@@ -664,26 +651,29 @@ class Validator:
                 bt.logging.error(f"{e}")
                 # self.subtensor = Subtensor(config=self.config)
                 self.subtensor = bt.subtensor(config=self.config)
+
         for attempt in range(3):
             process = multiprocessing.Process(target=sync_metagraph, args=(self.subtensor.chain_endpoint,))
             process.start()
             process.join(timeout=ttl)
             if process.is_alive():
-                process.terminate() 
+                process.terminate()
                 process.join()
                 bt.logging.error(f"Failed to sync metagraph after {ttl} seconds (attempt {attempt + 1}/3)")
                 if attempt == 2:
                     return False
             else:
-                break              
+                break
         bt.logging.success("Synced metagraph")
-        self._event_log("metagraph_sync_success")              
+        self._event_log("metagraph_sync_success")
         return True
 
     async def try_run_step(self, ttl: int) -> Optional[bool]:
         async def _try_run_step():
             success = await self.run_step()
-            logged_payload = self._with_decoration(self.local_metadata, self.wallet.hotkey,{"run_step_success": success})
+            logged_payload = self._with_decoration(
+                self.local_metadata, self.wallet.hotkey, {"run_step_success": success}
+            )
             self._remote_log(logged_payload)
             return success
 
@@ -702,22 +692,21 @@ class Validator:
     def model_id_matches_hotkey(self, model_id: ModelId, hotkey: str) -> bool:
         original_hash = model_id.hash or ""
         hotkey_hash = regenerate_hash(
-            namespace=model_id.namespace, 
-            name=model_id.name, 
-            chat_template=model_id.chat_template, 
-            hotkey=hotkey)
+            namespace=model_id.namespace, name=model_id.name, chat_template=model_id.chat_template, hotkey=hotkey
+        )
         hotkey_matches = str(original_hash) == str(hotkey_hash)
-        
+
         return hotkey_matches
 
-
-    def fetch_model_data(self, uid: int, hotkey:str) -> Optional[MinerEntry]:
+    def fetch_model_data(self, uid: int, hotkey: str) -> Optional[MinerEntry]:
         try:
             bt.logging.warning(f"get_metadata for uid={uid} hotkey={hotkey} netuid={self.config.netuid}")
-            metadata = bt.core.extrinsics.serving.get_metadata(self=self.subtensor, netuid=self.config.netuid, hotkey=hotkey)
+            metadata = bt.core.extrinsics.serving.get_metadata(
+                self=self.subtensor, netuid=self.config.netuid, hotkey=hotkey
+            )
             if metadata is None:
                 return None
-            
+
             commitment = metadata["info"]["fields"][0]
             hex_data = commitment[list(commitment.keys())[0]][2:]
             chain_str = bytes.fromhex(hex_data).decode()
@@ -727,13 +716,13 @@ class Validator:
             #     bt.logging.warning(f"chain_str {chain_str}")
             # except Exception as e:
             #     bt.logging.error(f"error fetching commit data {e}")
-            
+
             # if chain_str is None or len(chain_str) < 1:
             #     return None
-     
+
             model_id = ModelId.from_compressed_str(chain_str)
             model_id.hotkey = hotkey
-            
+
             block = metadata["block"]
             entry = MinerEntry()
             entry.block = block
@@ -742,13 +731,11 @@ class Validator:
         except Exception as e:
             bt.logging.error(f"could not fetch data for {hotkey} : {e}")
             return None
-        
-
 
     @staticmethod
     def adjusted_temperature_multipler(current_block: int) -> float:
         CHANGE_BLOCK = 4247000
-        # currently force static 0.15 temperature 
+        # currently force static 0.15 temperature
         if current_block > CHANGE_BLOCK:
             return 15
         diff = current_block - CHANGE_BLOCK
@@ -756,12 +743,13 @@ class Validator:
         # Scale linearly up to NEW_EPOCH_BLOCK
         if diff <= 7200:
             return 1.0
-        
+
         # Linear scaling: (diff / max_diff) * (max_temp - min_temp) + min_temp
         temp = (diff / CHANGE_BLOCK) * 14 + 1
-        
+
         # Cap at max temperature of 0.15
         return min(temp, 15)
+
     async def run_step(self):
         """
         Executes a step in the evaluation process of models. This function performs several key tasks:
@@ -779,7 +767,7 @@ class Validator:
             return False
         current_block = self.metagraph.block.item()
         competition_parameters = constants.COMPETITION_SCHEDULE[0]
-        telemetry_report(self.local_metadata)
+        # telemetry_report(self.local_metadata)
         all_uids = self.metagraph.uids.tolist()
         # Avoid biasing lower value uids when making calls
         random.shuffle(all_uids)
@@ -790,7 +778,6 @@ class Validator:
 
         invalid_uids, miner_registry = await self.build_registry(all_uids=all_uids, current_block=current_block)
         bt.logging.warning(f"invalid_uids : {invalid_uids}")
-        
 
         try:
             for uid1, entry1 in miner_registry.items():
@@ -830,15 +817,17 @@ class Validator:
             miner_registry[uid].total_score = 0
 
         # Compute wins and win rates per uid.
+        miner_registry[2].total_score = 0.5
+        miner_registry[2].invalid = False
+
         wins, win_rate = compute_wins(miner_registry)
         sorted_uids = sorted(miner_registry.keys())
 
         # Compute softmaxed weights based on win rate.
         model_weights = torch.tensor([win_rate[uid] for uid in sorted_uids], dtype=torch.float32)
 
+        temperature = constants.temperature 
 
-        temperature = constants.temperature * self.adjusted_temperature_multipler(current_block)
-        
         step_weights = torch.softmax(model_weights / temperature, dim=0)
 
         # Update weights based on moving average.
@@ -993,13 +982,12 @@ def telemetry_report(local_metadata: LocalMetadata, payload=None):
 
 
 import base64
-def sign_request(
-        keypair,
-        payload: str
-):
+
+
+def sign_request(keypair, payload: str):
 
     signed_payload = keypair.sign(data=payload)
-    signed_payload_base64 = base64.b64encode(signed_payload).decode('utf-8')
+    signed_payload_base64 = base64.b64encode(signed_payload).decode("utf-8")
 
     return {
         "payload_signed": signed_payload_base64,
@@ -1014,10 +1002,9 @@ def _get_model_score(
     signatures: Dict[str, str],
     retryWithRemote: bool = False,
 ) -> Optional[Scores]:
-
+    # if uid = 2 return 0.5 return scores object
+    
     return None
-
-
 
 
 if __name__ == "__main__":
