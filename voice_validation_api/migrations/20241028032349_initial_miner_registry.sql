@@ -1,12 +1,10 @@
 -- Migration: initial_miner_registry
 
--- Write your migration SQL here
 CREATE TABLE IF NOT EXISTS miner_entries (
+    uid INTEGER PRIMARY KEY,
     hotkey VARCHAR NOT NULL,
     hash VARCHAR NOT NULL,
-    block INTEGER NOT NULL,
-    uid INTEGER NOT NULL,
-    created_at timestamptz
+    block INTEGER NOT NULL
 );
 
 CREATE TABLE IF NOT EXISTS hash_entries (
@@ -22,6 +20,3 @@ CREATE TABLE IF NOT EXISTS hash_entries (
     safetensors_hash TEXT,
     status TEXT
 );
-
-CREATE INDEX IF NOT EXISTS idx_miner_entries_hotkey 
-ON miner_entries(hotkey);
