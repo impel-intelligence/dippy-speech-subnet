@@ -14,6 +14,9 @@ import datetime as dt
 import argparse
 from rich.console import Console
 
+"""
+uv run python api_validation_tester.py     --device cuda     --blocks_per_epoch 100     --dont_set_weights     --wait_for_inclusion     --offline     --immediate     --netuid 231     --genesis     --dtype bfloat16     --do_sample     --num_samples_per_eval 64     --use-local-validation-api     --local-validation-api-port 8000     --wandb-key WANDBKEY     --wallet.name coldkey3     --wallet.hotkey hotkey3     --subtensor.network test     --wallet.path "/home/ubuntu/.bittensor/wallets"
+"""
 
 # Define constants
 class constants:
