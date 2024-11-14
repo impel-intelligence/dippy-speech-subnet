@@ -300,14 +300,6 @@ if __name__ == "__main__":
         signatures=signed_payload,
     )
 
-    print(score_data)
 
-    # print("TEST")
-    # print(network_name)
-    # print(netuid)
-    # print(wallet)
-    # print(subtensor)
-    # print(metagraph)
-    # print(validator_uid)
-    # print(hotkey)
-    # print(local_metadata)
+    bt.logging.error(f"API validation tester script completed. {score_data}")
+
