@@ -55,10 +55,11 @@ def apply_weights(base_score: float, text: str, weights: dict) -> float:
     :return: Weighted score.
     """
     weighted_score = base_score
+    # An Example scaffold for when we choose to leverage weights
 
-    if isinstance(weights, dict) and "text_length" in weights:
-        length_factor = len(text) / 100  # Normalize text length by dividing by 100
-        weighted_score *= weights["text_length"] * length_factor
+    # if isinstance(weights, dict) and "text_length" in weights:
+    #     length_factor = len(text) / 100  # Normalize text length by dividing by 100
+    #     weighted_score *= weights["text_length"] * length_factor
 
     # Example to add other weights
     # # Apply voice description weight if provided
@@ -91,37 +92,27 @@ def get_tts_score(request: str) -> dict:
         try:
             # Calculate the base score using the scoring workflow function.
             base_score = scoring_workflow(request.repo_namespace, request.repo_name, text, voice_description)
+
+            # Extract float values from each tensor in the 'scores' list for further processing
+            float_values_from_tensors = [score.item() for score in base_score]
+
             # Apply weights to the base score based on text properties.
-            weighted_score = apply_weights(base_score, text, weights)
+            weighted_score = apply_weights(float_values_from_tensors, text, weights)
+
             # Append the weighted score to the scores list.
             scores.append(weighted_score)
-
-            # Flatten the list of scores to extract the individual values.
-            flattened_scores = [score.item() for score in scores]
-            # Find the minimum and maximum scores in the flattened list.
-            min_score, max_score = min(flattened_scores), max(flattened_scores)
-
-            # Check if all scores are the same (min_score equals max_score).
-            if min_score == max_score:
-                # If true, set all normalized scores to 1.0 to avoid division by zero.
-                normalized_scores = [1.0 for _ in flattened_scores]
-                logging.info("All scores are equal; normalized scores set to 1.0")
-            else:
-                # Normalize scores by scaling them between 0 and 1.
-                normalized_scores = [(score - min_score) / (max_score - min_score) for score in flattened_scores]
-
-            # Calculate the average of the normalized scores.
-            average_normalized_score = np.mean(normalized_scores)
-            # Compute the final score by scaling the average normalized score to a range from 1 to 10.
-            final_score = 1 + 9 * average_normalized_score
-            # Update the result dictionary with the final score.
-            result["final_score"] = final_score
 
         # Catch any exceptions that occur during score calculation.
         except Exception as e:
             # Log the error and update the result dictionary with the error message.
             logging.info(f"Error calculating score: {e}")
             result["error"] = str(e)
+
+    # Calculate the average score after the loop completes.
+    if scores:
+        clipped_scores = np.clip(scores, 0, 1)
+        mean_value = float(np.mean(clipped_scores))
+        result["final_score"] = mean_value
 
     # Return the final result dictionary containing the score and any errors.
     return result
