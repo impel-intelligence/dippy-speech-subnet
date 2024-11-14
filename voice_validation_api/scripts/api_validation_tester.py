@@ -1,22 +1,25 @@
-import requests
+import argparse
 import base64
-from typing import Dict
-from dataclasses import dataclass
-from enum import Enum
+import datetime as dt
 import os
 import subprocess
-from common.scores import Scores, StatusEnum
-from shlex import split
+from dataclasses import dataclass
+from enum import Enum
 from importlib.metadata import version
+from shlex import split
+from typing import Dict
+
 import bittensor as bt
+import requests
 from bittensor.core.subtensor import Subtensor
-import datetime as dt
-import argparse
 from rich.console import Console
+
+from common.scores import Scores, StatusEnum
 
 """
 uv run python api_validation_tester.py     --device cuda     --blocks_per_epoch 100     --dont_set_weights     --wait_for_inclusion     --offline     --immediate     --netuid 231     --genesis     --dtype bfloat16     --do_sample     --num_samples_per_eval 64     --use-local-validation-api     --local-validation-api-port 8000     --wandb-key WANDBKEY     --wallet.name coldkey3     --wallet.hotkey hotkey3     --subtensor.network test     --wallet.path "/home/ubuntu/.bittensor/wallets"
 """
+
 
 # Define constants
 class constants:
@@ -156,12 +159,14 @@ def local_metadata() -> LocalMetadata:
 
 # The _get_model_score function
 import os
-import requests
 from typing import Dict
+
+import requests
 
 # Ensure you have the necessary imports for Scores, StatusEnum, LocalMetadata, constants, bt, and Console
 # from your_project import Scores, StatusEnum, LocalMetadata, constants, bt
 # from rich.console import Console
+
 
 def get_model_score(
     namespace: str,
@@ -258,7 +263,6 @@ def get_model_score(
     return score_data
 
 
-
 # Main function to test _get_model_score
 if __name__ == "__main__":
     config = config()
@@ -279,18 +283,17 @@ if __name__ == "__main__":
     local_metadata = local_metadata()
 
     local_metadata = LocalMetadata(
-            commit=local_metadata.commit,
-            btversion=local_metadata.btversion,
-            hotkey=wallet.hotkey.ss58_address,
-            coldkey=wallet.coldkeypub.ss58_address,
-            uid=validator_uid,
-        )
-    
+        commit=local_metadata.commit,
+        btversion=local_metadata.btversion,
+        hotkey=wallet.hotkey.ss58_address,
+        coldkey=wallet.coldkeypub.ss58_address,
+        uid=validator_uid,
+    )
+
     signed_payload = sign_request(
         wallet.hotkey,
         hotkey,
     )
-    
 
     score_data = get_model_score(
         namespace="test5050",
@@ -303,6 +306,4 @@ if __name__ == "__main__":
         signatures=signed_payload,
     )
 
-
     bt.logging.error(f"API validation tester script completed. {score_data}")
-
