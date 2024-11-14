@@ -502,7 +502,7 @@ class Validator:
                 except Exception as e:
                     bt.logging.error(f"Set Weights Fail")
                     raise e
-                
+
                 weights_report = {"weights": {}}
                 for uid, score in enumerate(self.weights):
                     weights_report["weights"][uid] = score
@@ -584,7 +584,7 @@ class Validator:
                     invalid_uids.append(uid)
                     bt.logging.info(f"skip uid={uid} submitted on {model_data.block} after {current_block}")
                     return
-            
+
                 # hotkey_hash_passes = self.model_id_matches_hotkey(model_data.miner_model_id, hotkey)
 
                 # if not hotkey_hash_passes:
@@ -602,10 +602,14 @@ class Validator:
                     hotkey,
                 )
                 _score_data = _get_model_score(
-                    miner_registry[uid].miner_model_id,
-                    self.config,
-                    self.local_metadata,
-                    signed_payload,
+                    namespace=model_data.miner_model_id.namespace,
+                    name=model_data.miner_model_id.name,
+                    hash=model_data.miner_model_id.hash,
+                    template=model_data.miner_model_id.config_template,
+                    hotkey=model_data.miner_model_id.hotkey,
+                    config=self.config,
+                    local_metadata=self.local_metadata,
+                    signatures=signed_payload,
                 )
 
                 # if _score_data.status != StatusEnum.COMPLETED:
@@ -624,10 +628,13 @@ class Validator:
                     invalid_uids.append(uid)
                     bt.logging.info(f"skip uid={uid} status is {_score_data.status}")
                     return
+
                 if _score_data.status == StatusEnum.COMPLETED:
                     miner_registry[uid].total_score = _score_data.calculate_total_score()
+
                 elif _score_data.status == StatusEnum.FAILED:
                     miner_registry[uid].total_score = 0
+
             except Exception as e:
                 bt.logging.error(f"could not update for uid={uid}:{hotkey} {e}")
                 bt.logging.error(f"Traceback: {traceback.format_exc()}")
@@ -826,7 +833,7 @@ class Validator:
         # Compute softmaxed weights based on win rate.
         model_weights = torch.tensor([win_rate[uid] for uid in sorted_uids], dtype=torch.float32)
 
-        temperature = constants.temperature 
+        temperature = constants.temperature
 
         step_weights = torch.softmax(model_weights / temperature, dim=0)
 
@@ -996,15 +1003,88 @@ def sign_request(keypair, payload: str):
 
 
 def _get_model_score(
-    model_id: ModelId,
+    namespace: str,
+    name: str,
+    hash: str,
+    template: str,
+    hotkey: str,
     config,
     local_metadata: LocalMetadata,
     signatures: Dict[str, str],
     retryWithRemote: bool = False,
-) -> Optional[Scores]:
-    # if uid = 2 return 0.5 return scores object
-    
-    return None
+    debug: bool = False,
+) -> Scores:
+    # Status:
+    # QUEUED, RUNNING, FAILED, COMPLETED
+    # return (score, status)
+    if config.use_local_validation_api and not retryWithRemote:
+        validation_endpoint = f"http://localhost:{config.local_validation_api_port}/evaluate_model"
+    else:
+        validation_endpoint = f"{constants.VALIDATION_SERVER}/evaluate_model"
+
+    # Construct the payload with the model name and chat template type
+    payload = {
+        "repo_namespace": namespace,
+        "repo_name": name,
+        "hash": hash,
+        "chat_template_type": template,
+        "hotkey": hotkey,
+    }
+    headers = {
+        "Git-Commit": str(local_metadata.commit),
+        "Bittensor-Version": str(local_metadata.btversion),
+        "UID": str(local_metadata.uid),
+        "Hotkey": str(local_metadata.hotkey),
+        "Coldkey": str(local_metadata.coldkey),
+    }
+    headers.update(signatures)
+    if os.environ.get("ADMIN_KEY", None) not in [None, ""]:
+        payload["admin_key"] = os.environ["ADMIN_KEY"]
+
+    score_data = Scores()
+
+    ###### Mocking Reponse################
+    from unittest.mock import patch, MagicMock
+
+    with patch("requests.post") as mock_post:
+        # Create a mock response object
+        mock_response = MagicMock()
+        mock_response.status_code = 200
+        mock_response.json.return_value = {
+            "status": "COMPLETED",
+            "score": {
+                "human_similarity_score": 0.9,
+            },
+        }
+        mock_post.return_value = mock_response
+
+        try:
+            response = requests.post(validation_endpoint, json=payload, headers=headers)
+            response.raise_for_status()  # Raise an exception for HTTP errors
+
+            # Parse the response JSON
+            result = response.json()
+            if debug:
+                console = Console()
+                console.print(f"Payload: {payload}")
+
+            if result is None or "status" not in result:
+                score_data.status = StatusEnum.FAILED
+                return score_data
+
+            status = StatusEnum.from_string(result["status"])
+            score_data.status = status
+
+            if "score" in result:
+                score_data.from_response(result["score"])
+
+        except Exception as e:
+            score_data.status = StatusEnum.FAILED
+            bt.logging.error(e)
+            bt.logging.error(f"Failed to get score and status for {namespace}/{name}")
+
+    bt.logging.debug(f"Model {namespace}/{name} has score data {score_data}")
+    return score_data
 
 
 if __name__ == "__main__":
