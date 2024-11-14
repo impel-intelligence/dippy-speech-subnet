@@ -110,9 +110,9 @@ def get_tts_score(request: str) -> dict:
 
     # Calculate the average score after the loop completes.
     if scores:
-        mean_value = float(np.mean(scores))
-        clipped_mean_value = np.clip(mean_value, 0, 1) # Clip value between 0 and 1
-        result["final_score"] = clipped_mean_value
+        clipped_scores = np.clip(scores, 0, 1)
+        mean_value = float(np.mean(clipped_scores))
+        result["final_score"] = mean_value
 
     # Return the final result dictionary containing the score and any errors.
     return result
