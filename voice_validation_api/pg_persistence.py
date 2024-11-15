@@ -25,7 +25,7 @@ class MinerWithHashes(BaseModel):
     hash_entries: List[HashEntry]
 
 class Persistence:
-    def __init__(self, connection_string: str = "postgresql://localhost/mydb"):
+    def __init__(self, connection_string: str = "postgresql://vapi:vapi@localhost:5432/vapi"):
         self.logger = logging.getLogger(__name__)
         self.pool = ConnectionPool(
             connection_string,
@@ -164,6 +164,30 @@ class Persistence:
                 except psycopg.Error as e:
                     self.logger.error(f"Error fetching leaderboard entry: {e}")
                     return None
+    def get_from_hash(self, hash: str) -> Optional[Dict]:
+        """Gets formatted result for a hash entry"""
+        with self.pool.connection() as conn:
+            with conn.cursor() as cur:
+                try:
+                    cur.execute("""
+                        SELECT * FROM hash_entries WHERE hash = %s
+                    """, (hash,))
+                    row = cur.fetchone()
+                    
+                    if row:
+                        return {
+                            "score": {
+                                "total_score": row["total_score"],
+                            },
+                            "details": {
+                                "model_hash": row["model_hash"],
+                            },
+                            "status": row["status"],
+                        }
+                    return None
+                except psycopg.Error as e:
+                    self.logger.error(f"Error fetching leaderboard entry: {e}")
+                    return None
 
     def get_internal_result(self, hash: str) -> Optional[Dict]:
         """Gets raw database row for a hash entry"""
@@ -265,7 +289,7 @@ class Persistence:
 # Example usage:
 def main():
     # Initialize with connection string
-    db = Persistence("postgresql://user:pass@localhost/dbname")
+    db = Persistence("postgresql://user:pass@localhost:5432/dbname")
     
     # Create tables if they don't exist
     db.create_tables()
