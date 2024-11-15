@@ -1,5 +1,5 @@
 import argparse
-import hashlib
+import logging
 from typing import Optional, Type
 
 import bittensor as bt
@@ -66,6 +66,7 @@ def get_config():
         default="d1",
         help="Model hash of the submission (currently optional for now)",
     )
+
     # Include wallet and logging arguments from bittensor
     bt.wallet.add_args(parser)
     bt.subtensor.add_args(parser)
@@ -79,10 +80,14 @@ def get_config():
 def register():
 
     config = get_config()
+
     bt.logging(config=config)
 
-    wallet = bt.wallet(config=config)
+    wallet = bt.wallet(config=config, path=config.wallet.path)
     subtensor = bt.subtensor(config=config)
+
+    logger = logging.getLogger("bittensor")
+    logger.setLevel(logging.INFO)
 
     hotkey = wallet.hotkey.ss58_address
     namespace = config.repo_namespace
@@ -130,6 +135,7 @@ def register():
             raise RuntimeError(f"No valid metadata found for netuid {netuid}")
 
         bt.logging.info("Metadata successfully retrieved for validation.")
+        print(metadata)
 
         # Extract and verify the commitment details from the metadata
         commitment = metadata["info"]["fields"][0]
