@@ -2,11 +2,10 @@ import argparse
 import hashlib
 from typing import Optional, Type
 
-from pydantic import BaseModel, Field, PositiveInt
 import bittensor as bt
+from pydantic import BaseModel, Field, PositiveInt
 
 from common.data import ModelId
-
 from utilities.validation_utils import regenerate_hash
 
 DEFAULT_NETUID = 231
@@ -76,14 +75,15 @@ def get_config():
     config = bt.config(parser)
     return config
 
+
 def register():
-    
+
     config = get_config()
     bt.logging(config=config)
 
     wallet = bt.wallet(config=config)
     subtensor = bt.subtensor(config=config)
-    
+
     hotkey = wallet.hotkey.ss58_address
     namespace = config.repo_namespace
     repo_name = config.repo_name
@@ -122,6 +122,43 @@ def register():
             bt.logging.info(f"Succesfully commited {model_commit_str} under {hotkey} on netuid {netuid}")
         except Exception as e:
             print(e)
+
+    # Check if the commit was successfully stored by fetching metadata
+    try:
+        metadata = bt.core.extrinsics.serving.get_metadata(subtensor, netuid, hotkey)
+        if not metadata or "info" not in metadata or "fields" not in metadata["info"]:
+            raise RuntimeError(f"No valid metadata found for netuid {netuid}")
+
+        bt.logging.info("Metadata successfully retrieved for validation.")
+
+        # Extract and verify the commitment details from the metadata
+        commitment = metadata["info"]["fields"][0]
+        hex_data = commitment.get(list(commitment.keys())[0], "")[2:]
+
+        if not hex_data:
+            raise ValueError("Commitment data is empty or malformed.")
+
+        try:
+            chain_str = bytes.fromhex(hex_data).decode()
+            model_id = ModelId.from_compressed_str(chain_str)
+            bt.logging.info("Model ID successfully reconstructed from commitment.")
+        except (ValueError, UnicodeDecodeError) as decode_error:
+            bt.logging.error(f"Decoding failed: {decode_error}")
+            raise
+
+        # Compare the reconstructed model ID with the original commitment string
+        if model_id != ModelId.from_compressed_str(model_commit_str):
+            raise RuntimeError("Reconstructed model ID does not match the original commitment.")
+
+        # Construct metadata with the model ID and block number for validation
+        metadata = {
+            "model_id": model_id,
+            "block": metadata["block"],
+        }
+        bt.logging.info(f"Validation successful. Model ID: {model_id}, Block: {metadata['block']}")
+    except Exception as e:
+        bt.logging.error(f"Verification failed: {e}")
+        raise
 
 
 if __name__ == "__main__":
