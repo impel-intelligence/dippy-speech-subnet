@@ -1027,7 +1027,7 @@ def _get_model_score(
         "repo_namespace": namespace,
         "repo_name": name,
         "hash": hash,
-        "chat_template_type": template,
+        "config_template": template,
         "hotkey": hotkey,
     }
     headers = {

@@ -90,7 +90,7 @@ Submits a model for evaluation.
 "hash": "string",
 "repo_namespace": "string",
 "repo_name": "string",
-"chat_template_type": "string",
+"config_template": "string",
 "competition_id": "string",
 "hotkey": "string"
 }
@@ -110,7 +110,7 @@ json
 "hash": "string",
 "repo_namespace": "string",
 "repo_name": "string",
-"chat_template_type": "string",
+"config_template": "string",
 "competition_id": "string",
 "hotkey": "string",
 "admin_key": "string"

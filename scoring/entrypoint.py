@@ -52,13 +52,13 @@ def _run(
 def evaluate(
     repo_name: str = typer.Argument(help="Repository name"),
     repo_namespace: str = typer.Argument(help="Repository namespace"),
-    chat_template_type: str = typer.Argument(help="Chat template type"),
+    config_template: str = typer.Argument(help="Chat template type"),
     hash: Optional[str] = typer.Argument(help="hash"),
 ):
     request = EvaluateModelRequest(
         repo_namespace=repo_namespace,
         repo_name=repo_name,
-        chat_template_type=chat_template_type,
+        config_template=config_template,
         hash=hash,
     )
     _run(request=request, run_type="eval")
@@ -68,13 +68,13 @@ def evaluate(
 def inference_score(
     repo_name: str = typer.Argument(help="Repository name"),
     repo_namespace: str = typer.Argument(help="Repository namespace"),
-    chat_template_type: str = typer.Argument(help="Chat template type"),
+    config_template: str = typer.Argument(help="Chat template type"),
     hash: Optional[str] = typer.Argument(help="hash"),
 ):
     request = EvaluateModelRequest(
         repo_namespace=repo_namespace,
         repo_name=repo_name,
-        chat_template_type=chat_template_type,
+        config_template=config_template,
         hash=hash,
     )
     _run(request=request, run_type="tts")
@@ -87,7 +87,7 @@ def stub():
     write_to_json(result, "/tmp/output.json")
 
 
-# example: python entrypoint.py python entrypoint.py eval repo_name repo_namespace chat_template_type hash
+# example: python entrypoint.py python entrypoint.py eval repo_name repo_namespace config_template hash
 if __name__ == "__main__":
     gc.collect()
     torch.cuda.empty_cache()

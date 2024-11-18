@@ -52,7 +52,7 @@ class Evaluator:
 
         if trace:
             self.logger = EventLogger(
-                filepath="/tmp/valapi_event_logs/trace_{time:UNIX}.log",
+                filepath="/tmp/evaluator_logs/trace_{time:UNIX}.log",
                 level="DEBUG",
                 stderr=True,
             )
@@ -216,7 +216,7 @@ def entry():
     parser.add_argument("--image", type=str, default="grader:latest", help="image to use")
     parser.add_argument("--repo_namespace", type=str, required=True, help="Repository namespace")
     parser.add_argument("--repo_name", type=str, required=True, help="Repository name")
-    parser.add_argument("--chat_template_type", type=str, required=True, help="Chat template type")
+    parser.add_argument("--config_template", type=str, required=True, help="Chat template type")
     parser.add_argument("--hash", type=str, required=True, help="Unique hash value")
 
     args = parser.parse_args()
@@ -224,7 +224,7 @@ def entry():
     req = EvaluateModelRequest(
         repo_namespace=args.repo_namespace,
         repo_name=args.repo_name,
-        chat_template_type=args.chat_template_type,
+        config_template=args.config_template,
         hash=args.hash,
     )
     print(f"running {image_name} with {req}")

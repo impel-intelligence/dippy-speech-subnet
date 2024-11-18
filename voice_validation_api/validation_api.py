@@ -47,7 +47,6 @@ class MinerboardRequest(BaseModel):
     hotkey: str
     hash: str
     block: int
-    admin_key: Optional[str] = "admin_key"
 
 class AdminKeyMiddleware:
     def __init__(self, admin_key: str):
@@ -135,7 +134,7 @@ class ValidationAPI:
             request.repo_namespace,
             request.repo_name,
             request.config_template,
-            request.competition_id,
+            request.hotkey,
         )
         hotkey_hash_matches = int(request.hash) == regenerate_hash(
             request.repo_namespace,
@@ -189,16 +188,33 @@ class ValidationAPI:
             return Response(status_code=200)
         except Exception as e:
             return Response(status_code=400, content={"error": str(e)})
-
     def minerboard_update(self, request: MinerboardRequest):
-        """POST /minerboard_update - Protected endpoint for updating miner board status"""
-        self.db_client.update_minerboard_status(
-            minerhash=request.hash,
+        """POST /minerboard_update - Protected endpoint for updating miner board status
+        
+        Example curl command:
+        ```
+        curl -X POST http://localhost:9999/minerboard_update \
+          -H "Content-Type: application/json" \
+          -H "admin-key: admin_key_goes_here" \
+          -d '{
+            "hash": "01234567897",
+            "uid": 123,
+            "hotkey": "0x1234567890abcdef1234567890abcdef12345678",
+            "block": 12345
+          }'
+        ```
+        
+        Note: The ADMIN_KEY environment variable must be set with a valid authentication token
+        """
+        result = self.db_client.update_minerboard_status(
+            hash_entry=request.hash,
             uid=request.uid,
             hotkey=request.hotkey,
             block=request.block,
         )
-        return Response(status_code=200)
+        if result is None:
+            raise HTTPException(status_code=418, detail="Failed to update minerboard status")
+        return result
 
     def get_minerboard(self):
         """GET /minerboard - Endpoint for retrieving all miner entries"""
@@ -208,25 +224,23 @@ class ValidationAPI:
         if len(entries) < 1:
             return []
         return entries
-    
     """GET /model_submission_details - Endpoint for retrieving model submission details"""
     def get_model_submission_details(
-            self,
+        self,
         repo_namespace: str,
         repo_name: str,
-        chat_template_type: str,
+        config_template: str,
         hash: str,
-        competition_id: Optional[str] = None,
-        hotkey: Optional[str] = None,
+        hotkey: Optional[str],
         ):
         
         request = EvaluateModelRequest(
-        repo_namespace=repo_namespace,
-        repo_name=repo_name,
-        chat_template_type=chat_template_type,
-        hash=hash,
-        hotkey=hotkey,
-    )
+            repo_namespace=repo_namespace,
+            repo_name=repo_name,
+            config_template=config_template,
+            hash=hash,
+            hotkey=hotkey,
+        )
         # verify hash
         hash_verified = self.hash_check(request)
         if not hash_verified:
@@ -248,6 +262,7 @@ class ValidationAPI:
         if not self.repository_exists(repo_id):
             failure_notes = f"Huggingface repo not public: {repo_id}"
             early_failure = True
+
 
         try:
             current_entry = self.db_client.get_from_hash(request.hash)
@@ -324,9 +339,12 @@ class ValidationAPI:
             logger.error(f"An exception occurred: {e}")
         finally:
             logger.info("Stopping evaluation thread")
-
     def get_recent_entries(self):
-        """GET /recent_entries - Endpoint for retrieving 256 most recent hash entries"""
+        """GET /recent_entries - Endpoint for retrieving 256 most recent hash entries
+        
+        Example curl command:
+        curl -X GET http://localhost:9999/recent_entries
+        """
         entries = self.db_client.fetch_recent_entries(limit=256)
         if entries is None:
             return []

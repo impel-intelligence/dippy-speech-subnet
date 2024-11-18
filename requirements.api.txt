@@ -26,3 +26,4 @@ pydub==0.25.1
 black
 isort
 psycopg_pool
+psycopg

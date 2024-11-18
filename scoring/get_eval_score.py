@@ -149,7 +149,7 @@ def get_eval_score(request: EvaluateModelRequest):
         max_input_len=MAX_SEQ_LEN - MAX_GENERATION_LENGTH - 200,
         )
         # set the chat template params
-        dataset.set_chat_template_params(chat_template_mappings[request.chat_template_type], input_tokenizer)
+        dataset.set_chat_template_params(chat_template_mappings[request.config_template], input_tokenizer)
         sampled_data = dataset.sample_dataset(EVALUATION_DATASET_SAMPLE_SIZE)
     except Exception as e:
         failure_reason = str(e)

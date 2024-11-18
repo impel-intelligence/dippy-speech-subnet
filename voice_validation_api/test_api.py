@@ -25,7 +25,7 @@ def test_evaluate_model():
         "admin_key": os.environ["ADMIN_KEY"],
         "repo_namespace": llm.split("/")[0],
         "repo_name": llm.split("/")[1],
-        "chat_template_type": "zephyr",
+        "config_template": "zephyr",
         "hash": None,
         "revision": "main",
         "competition_id": "test",
@@ -36,7 +36,7 @@ def test_evaluate_model():
         regenerate_hash(
             request_payload["repo_namespace"],
             request_payload["repo_name"],
-            request_payload["chat_template_type"],
+            request_payload["config_template"],
             request_payload["competition_id"],
         )
     )

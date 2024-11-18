@@ -40,3 +40,6 @@ target-version = ["py38", "py39", "py310"]
 [tool.isort]
 profile = "black"
 line_length = 120
+
+[tool.uv.workspace]
+members = ["ensure_endpoint"]

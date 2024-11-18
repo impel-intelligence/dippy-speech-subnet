@@ -285,7 +285,7 @@ class ModelQueue:
             "repo_namespace": namespace,
             "repo_name": name,
             "hash": hash,
-            "chat_template_type": template,
+            "config_template": template,
             "block": block,
             "hotkey": hotkey,
         }

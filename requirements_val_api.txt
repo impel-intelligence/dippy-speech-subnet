@@ -1,3 +1,6 @@
+requests
+psycopg[binary]>=3.0  # Added psycopg3 with binary wheels
+psycopg_pool
 wheel
 setuptools
 docker

@@ -49,28 +49,11 @@ PIPPA_DATASET_PATH = "datasets/pippa_deduped.jsonl"
 class EvaluateModelRequest(BaseModel):
     repo_namespace: str
     repo_name: str
-    chat_template_type: str
+    config_template: str = "default"
     hash: str
-    revision: Optional[str] = "main"
-    competition_id: Optional[str] = "d1"
-    admin_key: Optional[str] = "admin_key"
     hotkey: Optional[str] = ""
     block: Optional[int] = 0
-    tokenizer: Optional[str] = "llama"
 
-    def to_args(self) -> str:
-        return " ".join([self.repo_name, self.repo_namespace, self.chat_template_type, self.hash])
+    def to_args(self) -> str:            
+        return " ".join([self.repo_name, self.repo_namespace, self.config_template, self.hash])
 
-
-chat_template_mappings = {
-    "vicuna": "prompt_templates/vicuna_prompt_template.jinja",
-    "chatml": "prompt_templates/chatml_prompt_template.jinja",
-    "mistral": "prompt_templates/mistral_prompt_template.jinja",
-    "zephyr": "prompt_templates/zephyr_prompt_template.jinja",
-    "alpaca": "prompt_templates/alpaca_prompt_template.jinja",
-    "llama2": "prompt_templates/llama2_prompt_template.jinja",
-    "llama3": "prompt_templates/llama3_prompt_template.jinja",
-    "llama3dot1": "prompt_templates/llama3dot1_prompt_template.jinja",
-    # Currently not supported unti further optimizations are made
-    "gemma": "prompt_templates/gemma_it_prompt_template.jinja",
-}
