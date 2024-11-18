@@ -1,5 +1,5 @@
 [build-system]
-requires = ["setuptools>=45", "wheel"]
+requires = ["setuptools>=64", "wheel"]
 build-backend = "setuptools.build_meta"
 
 [project]
@@ -23,7 +23,7 @@ classifiers = [
 dependencies = {file = ["requirements.txt"]}
 
 [project.urls]
-Homepage = "https://github.com/impel-intelligence/dippy-bittensor-subnet"
+Homepage = "https://github.com/impel-intelligence/dippy-speech-subnet"
 
 [tool.setuptools.packages.find]
 where = ["."]

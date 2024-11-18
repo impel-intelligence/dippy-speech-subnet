@@ -18,7 +18,7 @@ class CompetitionParameters:
 # Project Constants.
 # ---------------------------------
 
-VALIDATION_SERVER = "http://localhost:7001"
+VALIDATION_SERVER = "http://localhost:8000"
 
 # The uid for this subnet.
 SUBNET_UID = 231

@@ -5,6 +5,7 @@ import psycopg
 from psycopg.rows import dict_row
 from psycopg_pool import ConnectionPool
 import logging
+import os
 
 class MinerEntry(BaseModel):
     hotkey: str
@@ -15,7 +16,7 @@ class HashEntry(BaseModel):
     hash: str
     safetensors_hash: str
     status: str
-    model_hash: Optional[str] = None
+    safetensors_hash: Optional[str] = None
     total_score: Optional[float] = None
     timestamp: Optional[datetime] = None
     notes: Optional[str] = None
@@ -25,7 +26,7 @@ class MinerWithHashes(BaseModel):
     hash_entries: List[HashEntry]
 
 class Persistence:
-    def __init__(self, connection_string: str = "postgresql://localhost/mydb"):
+    def __init__(self, connection_string: str = "postgresql://vapi:vapi@localhost:5432/vapi", migrations_path = "./voice_validation_api/migrations"):
         self.logger = logging.getLogger(__name__)
         self.pool = ConnectionPool(
             connection_string,
@@ -33,6 +34,7 @@ class Persistence:
             min_size=5,
             max_size=20
         )
+        self.migrations_path = migrations_path
 
     def insert_miner_entry(self, entry: MinerEntry) -> bool:
         """
@@ -80,46 +82,32 @@ class Persistence:
                     conn.rollback()
                     raise Exception(f"Failed to insert hash entry: {e}")
 
-    def create_tables(self):
+    def run_migrations(self):
         """
-        Creates the necessary tables if they don't exist.
+        Runs SQL migrations from the migrations directory.
         """
         with self.pool.connection() as conn:
             with conn.cursor() as cur:
                 try:
-                    # Create miner_entries table
-                    cur.execute("""
-                        CREATE TABLE IF NOT EXISTS miner_entries (
-                            hotkey VARCHAR NOT NULL,
-                            hash VARCHAR NOT NULL,
-                            block INTEGER NOT NULL,
-                            PRIMARY KEY (hotkey, hash, block)
-                        )
-                    """)
-
-                    # Updated hash_entries table with simplified scoring
-                    cur.execute("""
-                        CREATE TABLE IF NOT EXISTS hash_entries (
-                            hash VARCHAR PRIMARY KEY,
-                            safetensors_hash VARCHAR NOT NULL,
-                            status VARCHAR NOT NULL,
-                            model_hash VARCHAR,
-                            total_score FLOAT,
-                            timestamp TIMESTAMP,
-                            notes TEXT
-                        )
-                    """)
-
-                    # Create index for faster lookups
-                    cur.execute("""
-                        CREATE INDEX IF NOT EXISTS idx_miner_entries_hotkey 
-                        ON miner_entries(hotkey)
-                    """)
-
+                    # Get list of migration files
+                    migration_files = sorted([f for f in os.listdir(self.migrations_path) 
+                                           if f.endswith('.sql')])
+                    
+                    for migration_file in migration_files:
+                        migration_path = os.path.join(self.migrations_path, migration_file)
+                        with open(migration_path, 'r') as f:
+                            migration_sql = f.read()
+                            
+                        # Execute the migration
+                        cur.execute(migration_sql)
+                        
                     conn.commit()
                 except psycopg.Error as e:
                     conn.rollback()
-                    raise Exception(f"Failed to create tables: {e}")
+                    raise Exception(f"Failed to run migrations: {e}")
+                except Exception as e:
+                    conn.rollback() 
+                    raise Exception(f"Failed to read/parse migrations: {e}")
 
     def update_leaderboard_status(self, hash: str, status: str, notes: str = "") -> Optional[Dict]:
         """Updates status and notes for a hash entry"""
@@ -156,7 +144,31 @@ class Persistence:
                                 "total_score": row["total_score"],
                             },
                             "details": {
-                                "model_hash": row["model_hash"],
+                                "safetensors_hash": row["safetensors_hash"],
+                            },
+                            "status": row["status"],
+                        }
+                    return None
+                except psycopg.Error as e:
+                    self.logger.error(f"Error fetching leaderboard entry: {e}")
+                    return None
+    def get_from_hash(self, hash: str) -> Optional[Dict]:
+        """Gets formatted result for a hash entry"""
+        with self.pool.connection() as conn:
+            with conn.cursor() as cur:
+                try:
+                    cur.execute("""
+                        SELECT * FROM hash_entries WHERE hash = %s
+                    """, (hash,))
+                    row = cur.fetchone()
+                    
+                    if row:
+                        return {
+                            "score": {
+                                "total_score": row["total_score"],
+                            },
+                            "details": {
+                                "safetensors_hash": row["safetensors_hash"],
                             },
                             "status": row["status"],
                         }
@@ -261,14 +273,111 @@ class Persistence:
                 except psycopg.Error as e:
                     self.logger.error(f"Error fetching last uploaded model: {e}")
                     return None
+                
+    def upsert_and_return(self, entry: Dict, hash: str) -> Optional[Dict]:
+        """Upserts a hash entry and returns the updated record"""
+        with self.pool.connection() as conn:
+            with conn.cursor() as cur:
+                try:
+                    # Convert entry dict to proper format
+                    hash_entry = {
+                        "hash": hash,
+                        "repo_namespace": entry.get("repo_namespace"),
+                        "repo_name": entry.get("repo_name"), 
+                        "total_score": entry.get("total_score", 0),
+                        "status": entry.get("status"),
+                        "notes": entry.get("notes", ""),
+                        "timestamp": entry.get("timestamp")
+                    }
+
+                    # Upsert the record
+                    cur.execute("""
+                        INSERT INTO hash_entries (
+                            hash,
+                            repo_namespace,
+                            repo_name,
+                            total_score,
+                            status,
+                            notes,
+                            timestamp
+                        ) VALUES (
+                            %(hash)s,
+                            %(repo_namespace)s,
+                            %(repo_name)s,
+                            %(total_score)s,
+                            %(status)s,
+                            %(notes)s,
+                            %(timestamp)s
+                        )
+                        ON CONFLICT (hash) 
+                        DO UPDATE SET
+                            repo_namespace = EXCLUDED.repo_namespace,
+                            repo_name = EXCLUDED.repo_name,
+                            total_score = EXCLUDED.total_score,
+                            status = EXCLUDED.status,
+                            notes = EXCLUDED.notes,
+                            timestamp = EXCLUDED.timestamp
+                        RETURNING *
+                    """, hash_entry)
+                    
+                    result = cur.fetchone()
+                    conn.commit()
+                    return result
+                except psycopg.Error as e:
+                    conn.rollback()
+                    self.logger.error(f"Error upserting hash entry: {e}")
+                    return None
+                
+    def fetch_all_miner_entries(self) -> Optional[List[Dict]]:
+        """Gets all miner entries with their corresponding hash entry data"""
+        with self.pool.connection() as conn:
+            with conn.cursor() as cur:
+                try:
+                    cur.execute("""
+                        SELECT m.*, h.status, h.safetensors_hash, h.total_score, h.timestamp, h.notes
+                        FROM miner_entries m
+                        LEFT JOIN hash_entries h ON m.hash = h.hash
+                        
+                    """)
+                    return cur.fetchall()
+                except psycopg.Error as e:
+                    self.logger.error(f"Error fetching miner entries: {e}")
+                    return None
+
+    def fetch_recent_entries(self, limit: int = 256) -> List[Dict]:
+        """
+        Fetch the most recent entries from the hash_entries table
+        
+        Args:
+            limit (int): Maximum number of entries to return
+            
+        Returns:
+            List[Dict]: List of recent entries
+        """
+        query = """
+            SELECT *
+            FROM hash_entries
+            ORDER BY timestamp DESC
+            LIMIT %s
+        """
+        try:
+            with self.get_connection() as conn:
+                with conn.cursor() as cur:
+                    cur.execute(query, (limit,))
+                    columns = [desc[0] for desc in cur.description]
+                    results = cur.fetchall()
+                    return [dict(zip(columns, row)) for row in results]
+        except Exception as e:
+            logger.error(f"Error fetching recent entries: {e}")
+            return None
 
 # Example usage:
 def main():
     # Initialize with connection string
-    db = Persistence("postgresql://user:pass@localhost/dbname")
+    db = Persistence("postgresql://user:pass@localhost:5432/dbname")
     
     # Create tables if they don't exist
-    db.create_tables()
+    db.run_migrations()
     
     # Insert some test data
     hash_entry = HashEntry(
