@@ -1,4 +1,4 @@
-bittensor==8.2.0
+bittensor==8.3.1
 pydantic
 transformers
 torch
@@ -6,7 +6,6 @@ pandas
 sentencepiece
 protobuf
 python-dotenv
-supabase
 tiktoken
 threadpoolctl
 wandb
