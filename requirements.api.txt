@@ -1,3 +1,6 @@
+requests
+psycopg[binary]>=3.0  # Added psycopg3 with binary wheels
+psycopg_pool
 wheel
 setuptools
 docker
@@ -25,4 +28,4 @@ scipy==1.14.1
 pydub==0.25.1
 black
 isort
-psycopg_pool
+autoflake

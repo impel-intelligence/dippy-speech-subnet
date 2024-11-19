@@ -1,29 +1,21 @@
-import gc
-import time
 import os
-import multiprocessing
 import logging
-from typing import List, Optional, Dict, Any
+from typing import Optional, Dict, Any
 
 import uvicorn
 import pandas as pd
-import torch
 from fastapi import FastAPI, HTTPException, Header, Request, Response, APIRouter, Depends, Security
-from huggingface_hub import HfApi, HfFolder, list_models
+from huggingface_hub import HfApi
 from huggingface_hub.hf_api import HfApi, RepositoryNotFoundError, GatedRepoError
 from dotenv import load_dotenv
-import random
 from pydantic import BaseModel
 from fastapi.security import APIKeyHeader
 from starlette.exceptions import HTTPException
 from starlette.status import HTTP_403_FORBIDDEN
 
-from voice_validation_api.evaluator import Evaluator, RunError
 from voice_validation_api.pg_persistence import Persistence
-from common.scores import StatusEnum, Scores
+from common.scores import StatusEnum
 from common.validation_utils import regenerate_hash
-from common.repo_details import get_model_size, check_model_repo_details, ModelRepo
-from voice_validation_api.duplicate import duplicate
 from common.event_logger import EventLogger
 from scoring.common import EvaluateModelRequest
 
@@ -135,7 +127,7 @@ class ValidationAPI:
             request.repo_namespace,
             request.repo_name,
             request.config_template,
-            request.competition_id,
+            request.hotkey,
         )
         hotkey_hash_matches = int(request.hash) == regenerate_hash(
             request.repo_namespace,

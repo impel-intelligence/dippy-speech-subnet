@@ -21,7 +21,7 @@ db.run_migrations()
 llm = "Manavshah/llama-test"
 
 # Get API endpoint from environment variable with default
-API_ENDPOINT = os.environ.get("API_ENDPOINT", "http://localhost:9999")
+API_ENDPOINT = os.environ.get("API_ENDPOINT", "http://localhost:8000")
 
 def create_test_model_payload():
     """Factory function to create a consistent test model payload"""
@@ -34,7 +34,8 @@ def create_test_model_payload():
         "competition_id": "test",
         "hotkey": "example_hotkey",
         "block": 1,
-        "tokenizer": "llama"
+        "tokenizer": "llama",
+        "chat_template_type": "default_template"  
     }
 
     # Generate the hash
@@ -213,7 +214,7 @@ def test_minerboard_update():
 
 if __name__ == "__main__":
     # Run the test functions
-    # test_ensure_model()
+    test_ensure_model()
     # test_get_model_submission_details()
-    test_minerboard_update()
+    #test_minerboard_update()
     # test_get_next_model_to_eval(db)

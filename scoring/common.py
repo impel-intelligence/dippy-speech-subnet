@@ -50,6 +50,7 @@ class EvaluateModelRequest(BaseModel):
     repo_namespace: str
     repo_name: str
     chat_template_type: str
+    config_template: str = "default"
     hash: str
     revision: Optional[str] = "main"
     competition_id: Optional[str] = "d1"
