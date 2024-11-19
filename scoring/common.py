@@ -49,7 +49,7 @@ PIPPA_DATASET_PATH = "datasets/pippa_deduped.jsonl"
 class EvaluateModelRequest(BaseModel):
     repo_namespace: str
     repo_name: str
-    chat_template_type: Optional[str] = ""
+    chat_template_type: Optional[str] = "default"
     config_template: str = "default"
     hash: str
     revision: Optional[str] = "main"

@@ -94,7 +94,6 @@ def test_ensure_model():
             'alpha_score': None,
             'beta_score': None,
             'gamma_score': None,
-            'notes': '',
             'repo_namespace': request_payload["repo_namespace"],
             'repo_name': request_payload["repo_name"],
             'timestamp': db_entry['timestamp'],  # Allow dynamic timestamp check

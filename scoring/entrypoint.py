@@ -68,13 +68,13 @@ def evaluate(
 def inference_score(
     repo_name: str = typer.Argument(help="Repository name"),
     repo_namespace: str = typer.Argument(help="Repository namespace"),
-    chat_template_type: str = typer.Argument(help="Chat template type"),
+    config_template: str = typer.Argument(help="Chat template type"),
     hash: Optional[str] = typer.Argument(help="hash"),
 ):
     request = EvaluateModelRequest(
         repo_namespace=repo_namespace,
         repo_name=repo_name,
-        chat_template_type=chat_template_type,
+        config_template=config_template,
         hash=hash,
     )
     _run(request=request, run_type="tts")
