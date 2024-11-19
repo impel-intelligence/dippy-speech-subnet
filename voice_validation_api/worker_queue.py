@@ -2,22 +2,15 @@ import argparse
 import gc
 import logging
 import multiprocessing
-import os
 import random
 import time
 from typing import Any, Dict, List, Optional
 
 import torch
-from dotenv import load_dotenv
-from huggingface_hub import HfApi, HfFolder
-from huggingface_hub.hf_api import GatedRepoError, HfApi, RepositoryNotFoundError
 
 from common.event_logger import EventLogger
-from common.repo_details import ModelRepo, check_model_repo_details, get_model_size
 from common.scores import Scores, StatusEnum
-from common.validation_utils import regenerate_hash
 from scoring.common import EvaluateModelRequest
-from voice_validation_api.duplicate import duplicate
 from voice_validation_api.evaluator import Evaluator, HumanSimilarityScore, RunError
 from voice_validation_api.pg_persistence import Persistence
 
