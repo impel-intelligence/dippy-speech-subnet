@@ -61,6 +61,8 @@ class WorkerQueue:
         time.sleep(random.random())
         logger.info("Checking for models to evaluate")
         request = self._get_next_model_to_eval()
+    
+
         if request is None:
             logger.info("No more models to evaluate. Sleep before checking again.")
             return
@@ -82,6 +84,7 @@ class WorkerQueue:
     def _get_next_model_to_eval(self) -> Optional[EvaluateModelRequest]:
         """Get the next model from the queue to evaluate"""
         response = self.db_client.get_next_model_to_eval()
+        logger.info(f"Get Next Model Response : {response}")
 
         if response is None:
             return None
@@ -154,7 +157,7 @@ def main():
     args = parser.parse_args()
 
     logging.basicConfig(level=logging.INFO)
-    worker = WorkerQueue(stub=True)
+    worker = WorkerQueue()
     processes = []
     try:
         logger.info(f"Starting {args.queues} evaluation threads")
