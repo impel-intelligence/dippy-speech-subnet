@@ -14,12 +14,14 @@ class MinerEntry(BaseModel):
 
 class HashEntry(BaseModel):
     hash: str
-    safetensors_hash: str
     status: str
+    repo_name: str
+    repo_namespace: str
     safetensors_hash: Optional[str] = None
     total_score: Optional[float] = None
     timestamp: Optional[datetime] = None
     notes: Optional[str] = None
+
 
 class MinerWithHashes(BaseModel):
     miner_entries: List[MinerEntry]
@@ -35,6 +37,20 @@ class Persistence:
             max_size=20
         )
         self.migrations_path = migrations_path
+
+    def ensure_connection(self) -> bool:
+        """
+        Tests database connectivity by running a simple query.
+        Returns True if successful, False if connection fails.
+        """
+        with self.pool.connection() as conn:
+            with conn.cursor() as cur:
+                try:
+                    cur.execute("SELECT 1 LIMIT 1")
+                    return True
+                except psycopg.Error as e:
+                    self.logger.error(f"Database connection test failed: {e}")
+                    return False
 
     def insert_miner_entry(self, entry: MinerEntry) -> bool:
         """
@@ -146,6 +162,7 @@ class Persistence:
                             "details": {
                                 "safetensors_hash": row["safetensors_hash"],
                             },
+                            "hash": row["hash"],
                             "status": row["status"],
                         }
                     return None
@@ -205,19 +222,23 @@ class Persistence:
                 except psycopg.Error as e:
                     self.logger.error(f"Error fetching top completed: {e}")
                     return []
-
-    def get_next_model_to_eval(self) -> Optional[Dict]:
+    def get_next_model_to_eval(self) -> Optional[HashEntry]:
         """Gets the next queued model for evaluation"""
         with self.pool.connection() as conn:
             with conn.cursor() as cur:
                 try:
                     cur.execute("""
-                        SELECT * FROM hash_entries 
+                        SELECT hash, total_score, alpha_score, beta_score, gamma_score, 
+                               notes, repo_namespace, repo_name, timestamp, safetensors_hash, status
+                        FROM hash_entries 
                         WHERE status = 'QUEUED'
                         ORDER BY timestamp ASC
                         LIMIT 1
                     """)
-                    return cur.fetchone()
+                    row = cur.fetchone()
+                    if row:
+                        return HashEntry(**row)
+                    return None
                 except psycopg.Error as e:
                     self.logger.error(f"Error fetching next model: {e}")
                     return None
@@ -255,7 +276,6 @@ class Persistence:
                     conn.rollback()
                     self.logger.error(f"Error removing record: {e}")
                     return False
-
     def last_uploaded_model(self, miner_hotkey: str) -> Optional[Dict]:
         """Gets the last uploaded model for a miner"""
         with self.pool.connection() as conn:
@@ -272,6 +292,52 @@ class Persistence:
                     return cur.fetchone()
                 except psycopg.Error as e:
                     self.logger.error(f"Error fetching last uploaded model: {e}")
+                    return None
+    def update_minerboard_status(
+        self,
+        hash_entry: str,
+        uid: int,
+        hotkey: str,
+        block: int,
+    ) -> Optional[Dict]:
+        """Updates or inserts a miner entry record"""
+        with self.pool.connection() as conn:
+            with conn.cursor() as cur:
+                try:
+                    # First check if hash exists in hash_entries
+                    cur.execute("""
+                        SELECT hash FROM hash_entries 
+                        WHERE hash = %s
+                    """, (hash_entry,))
+                    
+                    if not cur.fetchone():
+                        self.logger.error(f"No hash_entry found for hash {hash_entry}")
+                        return None
+
+                    # Then handle miner_entries upsert
+                    cur.execute("""
+                        INSERT INTO miner_entries (
+                            hash,
+                            uid, 
+                            hotkey,
+                            block
+                        ) VALUES (
+                            %s, %s, %s, %s
+                        )
+                        ON CONFLICT ON CONSTRAINT miner_entries_pkey
+                        DO UPDATE SET
+                            uid = EXCLUDED.uid,
+                            hotkey = EXCLUDED.hotkey, 
+                            block = EXCLUDED.block
+                        RETURNING *
+                    """, (hash_entry, uid, hotkey, block))
+                    
+                    result = cur.fetchone()
+                    conn.commit()
+                    return result
+                except psycopg.Error as e:
+                    conn.rollback()
+                    self.logger.error(f"Error updating miner entry status for {hash_entry}: {e}")
                     return None
                 
     def upsert_and_return(self, entry: Dict, hash: str) -> Optional[Dict]:
@@ -343,8 +409,7 @@ class Persistence:
                 except psycopg.Error as e:
                     self.logger.error(f"Error fetching miner entries: {e}")
                     return None
-
-    def fetch_recent_entries(self, limit: int = 256) -> List[Dict]:
+    def fetch_recent_entries(self, limit: int = 256) -> List[HashEntry]:
         """
         Fetch the most recent entries from the hash_entries table
         
@@ -352,23 +417,33 @@ class Persistence:
             limit (int): Maximum number of entries to return
             
         Returns:
-            List[Dict]: List of recent entries
+            List[HashEntry]: List of recent entries
         """
         query = """
-            SELECT *
+            SELECT 
+                hash,
+                total_score,
+                alpha_score,
+                beta_score,
+                gamma_score,
+                notes,
+                repo_namespace,
+                repo_name,
+                timestamp,
+                safetensors_hash,
+                status
             FROM hash_entries
             ORDER BY timestamp DESC
             LIMIT %s
         """
         try:
-            with self.get_connection() as conn:
-                with conn.cursor() as cur:
+            with self.pool.connection() as conn:
+                with conn.cursor(row_factory=psycopg.rows.dict_row) as cur:
                     cur.execute(query, (limit,))
-                    columns = [desc[0] for desc in cur.description]
                     results = cur.fetchall()
-                    return [dict(zip(columns, row)) for row in results]
+                    return [HashEntry(**row) for row in results]
         except Exception as e:
-            logger.error(f"Error fetching recent entries: {e}")
+            self.logger.error(f"Error fetching recent entries: {e}")
             return None
 
 # Example usage:
