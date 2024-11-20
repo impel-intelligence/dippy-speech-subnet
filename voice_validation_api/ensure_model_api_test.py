@@ -18,7 +18,7 @@ db = Persistence("postgresql://vapi:vapi@localhost:5432/vapi")
 db.run_migrations()
 
 # Define the model details
-llm = "Manavshah/llama-test"
+llm = "parler-tts/parler-tts-mini-v1"
 
 # Get API endpoint from environment variable with default
 API_ENDPOINT = os.environ.get("API_ENDPOINT", "http://localhost:8000")
