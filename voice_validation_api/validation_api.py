@@ -185,7 +185,7 @@ class ValidationAPI:
     def minerboard_update(self, request: MinerboardRequest):
         """POST /minerboard_update - Protected endpoint for updating miner board status"""
         self.db_client.update_minerboard_status(
-            minerhash=request.hash,
+            hash_entry=request.hash,
             uid=request.uid,
             hotkey=request.hotkey,
             block=request.block,

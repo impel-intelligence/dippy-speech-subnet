@@ -291,12 +291,14 @@ class ModelQueue:
         }
         score_data = Scores()
 
+        headers = {}
+
         if os.environ.get("ADMIN_KEY", None) not in [None, ""]:
-            payload["admin_key"] = os.environ["ADMIN_KEY"]
+            headers["admin-key"] = os.environ["ADMIN_KEY"]
 
         try:
             async with aiohttp.ClientSession() as session:
-                async with session.post(validation_endpoint, json=payload) as response:
+                async with session.post(validation_endpoint, json=payload, headers=headers) as response:
                     response.raise_for_status()
                     result = await response.json()
                     if result is None:
@@ -340,7 +342,7 @@ class ModelQueue:
             "Coldkey": str(local_metadata.coldkey),
         }
         if os.environ.get("ADMIN_KEY", None) not in [None, ""]:
-            payload["admin_key"] = os.environ["ADMIN_KEY"]
+            headers["admin-key"] = os.environ["ADMIN_KEY"]
 
         try:
             async with aiohttp.ClientSession() as session:
