@@ -104,7 +104,6 @@ class WorkerQueue:
                 human_similarity_result = HumanSimilarityScore(human_similarity_score=0.1)
                 time.sleep(30)
             else:
-                logger.info(f"WHAT THE FUCK {request}")
                 human_similarity_result = evaluator.human_similarity_score(request=request)
             if isinstance(human_similarity_result, RunError):
                 raise Exception(human_similarity_result.error)
@@ -138,7 +137,8 @@ class WorkerQueue:
     def _upsert_scores(self, hash_id: str, data: Dict[str, Any]) -> None:
         """Update scores in the database"""
         data["hash"] = hash_id
-        self.db_client.upsert_row(data)
+        self.db_client.update_leaderboard_success(hash=hash_id, status=data["status"], total_score=data["total_score"], notes=data["notes"])
+        # self.db_client.upsert_row(data)
 
 
 def main():
