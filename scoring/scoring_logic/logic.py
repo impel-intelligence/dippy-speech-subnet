@@ -219,8 +219,25 @@ def scoring_workflow(repo_namespace, repo_name, text, voice_description):
     # Load the mini parler model from hugging face
     # model_name = "parler-tts/parler-tts-mini-v1"  # an 880M parameter model.
     model_name = f"{repo_namespace}/{repo_name}"  # an 1.2B parameter model.
-    model = ParlerTTSForConditionalGeneration.from_pretrained(model_name).to(device)
-    tokenizer = AutoTokenizer.from_pretrained(model_name)
+
+    print(f"Model Name {model_name}")
+    # model = ParlerTTSForConditionalGeneration.from_pretrained(model_name).to(device)
+    # tokenizer = AutoTokenizer.from_pretrained(model_name)
+ 
+    try:
+        model = ParlerTTSForConditionalGeneration.from_pretrained(model_name).to(device)
+        print("Model loaded successfully.")
+    except Exception as e:
+        print(f"Error loading model: {e}")
+
+    try:
+        tokenizer = AutoTokenizer.from_pretrained(model_name)
+        print("Tokenizer loaded successfully.")
+    except Exception as e:
+        print(f"Error loading tokenizer: {e}")
+        
+
+
 
     # Initialize speaker index
     speaker_index = 0

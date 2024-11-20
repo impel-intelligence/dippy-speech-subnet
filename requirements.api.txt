@@ -1,8 +1,11 @@
+requests
+psycopg[binary]>=3.0  # Added psycopg3 with binary wheels
+psycopg_pool
 wheel
 setuptools
 docker
 packaging
-torch>=2.3.1
+torch==2.3.1
 tqdm >= 4.66.5
 vllm>=0.5.2
 pydantic >= 2.0
@@ -25,4 +28,5 @@ scipy==1.14.1
 pydub==0.25.1
 black
 isort
-psycopg_pool
+autoflake
+pre-commit

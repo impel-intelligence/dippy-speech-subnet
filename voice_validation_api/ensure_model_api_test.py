@@ -18,10 +18,10 @@ db = Persistence("postgresql://vapi:vapi@localhost:5432/vapi")
 db.run_migrations()
 
 # Define the model details
-llm = "Manavshah/llama-test"
+llm = "parler-tts/parler-tts-mini-v1"
 
 # Get API endpoint from environment variable with default
-API_ENDPOINT = os.environ.get("API_ENDPOINT", "http://localhost:9999")
+API_ENDPOINT = os.environ.get("API_ENDPOINT", "http://localhost:8000")
 
 def create_test_model_payload():
     """Factory function to create a consistent test model payload"""
@@ -34,7 +34,8 @@ def create_test_model_payload():
         "competition_id": "test",
         "hotkey": "example_hotkey",
         "block": 1,
-        "tokenizer": "llama"
+        "tokenizer": "llama",
+        "chat_template_type": "default_template"  
     }
 
     # Generate the hash
@@ -93,7 +94,6 @@ def test_ensure_model():
             'alpha_score': None,
             'beta_score': None,
             'gamma_score': None,
-            'notes': '',
             'repo_namespace': request_payload["repo_namespace"],
             'repo_name': request_payload["repo_name"],
             'timestamp': db_entry['timestamp'],  # Allow dynamic timestamp check
@@ -213,7 +213,7 @@ def test_minerboard_update():
 
 if __name__ == "__main__":
     # Run the test functions
-    # test_ensure_model()
+    test_ensure_model()
     # test_get_model_submission_details()
-    test_minerboard_update()
+    #test_minerboard_update()
     # test_get_next_model_to_eval(db)
