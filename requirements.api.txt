@@ -5,7 +5,7 @@ wheel
 setuptools
 docker
 packaging
-torch==2.3.1
+torch>=2.0.1
 tqdm >= 4.66.5
 vllm>=0.5.2
 pydantic >= 2.0
@@ -21,10 +21,10 @@ uvicorn
 jurigged
 modelscope==1.19.0
 addict==2.4.0
-datasets==3.0.1
+datasets>=3.0.1
 simplejson==3.19.3
 sortedcontainers==2.4.0
-scipy==1.14.1
+scipy>=1.14.1
 pydub==0.25.1
 black
 isort

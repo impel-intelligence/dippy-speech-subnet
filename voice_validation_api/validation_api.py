@@ -73,7 +73,7 @@ class ValidationAPI:
             logger.warning(f"Failed to create event logger: {e}")
 
         try:
-            self.db_client = Persistence()
+            self.db_client = Persistence(connection_string=os.environ.get("POSTGRES_URL"))
             self.db_client.run_migrations()
         except Exception as e:
             logger.warning(f"Failed to create db client: {e}")
@@ -329,7 +329,7 @@ class ValidationAPI:
 def start():
     import argparse
     parser = argparse.ArgumentParser(description="Run the server")
-    parser.add_argument("--main-api-port", type=int, default=8000, help="Port for the main API")
+    parser.add_argument("--main-api-port", type=int, default=7777, help="Port for the main API")
     args = parser.parse_args()
     
     api = ValidationAPI()
