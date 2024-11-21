@@ -299,7 +299,8 @@ class Persistence:
                         WHERE status = 'QUEUED'
                         ORDER BY timestamp ASC
                         LIMIT 1
-                    """
+                    """,
+                    prepare=False,  # Disables prepared statements
                     )
                     row = cur.fetchone()
                     if row:

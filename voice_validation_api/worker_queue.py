@@ -2,11 +2,13 @@ import argparse
 import gc
 import logging
 import multiprocessing
+import os
 import random
 import time
 from typing import Any, Dict, List, Optional
 
 import torch
+from dotenv import load_dotenv
 
 from common.event_logger import EventLogger
 from common.scores import Scores, StatusEnum
@@ -16,12 +18,16 @@ from voice_validation_api.pg_persistence import Persistence
 
 logger = logging.getLogger(__name__)
 
+# Load environment variables from a .env file
+load_dotenv()
+
 
 class WorkerQueue:
     GPU_ID_MAP = {0: "0", 1: "0", 2: "4,5", 3: "6,7", 4: "8,9"}
 
     def __init__(self, image_name: str = "speech:latest", stub: bool = False):
-        self.db_client = Persistence("postgresql://vapi:vapi@localhost:5432/vapi")
+        postgres_url = os.getenv("POSTGRES_URL")
+        self.db_client = Persistence(postgres_url)
         self.event_logger = EventLogger()
         self.stub = stub
         self.image_name = image_name
@@ -55,7 +61,6 @@ class WorkerQueue:
         logger.info("Checking for models to evaluate")
         request = self._get_next_model_to_eval()
         logger.info(f"Evaluation Request {request}")
-    
 
         if request is None:
             logger.info("No more models to evaluate. Sleep before checking again.")
@@ -96,6 +101,7 @@ class WorkerQueue:
             "RUNNING",
             "Model evaluation in progress starting with human similarity score",
         )
+        logger.info("Create Evaluator")
         evaluator = Evaluator(image_name=self.image_name, trace=True, gpu_ids=self.GPU_ID_MAP[queue_id])
 
         # Run evaluation scoring
@@ -104,6 +110,7 @@ class WorkerQueue:
                 human_similarity_result = HumanSimilarityScore(human_similarity_score=0.1)
                 time.sleep(30)
             else:
+                logger.info("Evaluate Human Similarity Score")
                 human_similarity_result = evaluator.human_similarity_score(request=request)
             if isinstance(human_similarity_result, RunError):
                 raise Exception(human_similarity_result.error)
@@ -136,8 +143,10 @@ class WorkerQueue:
 
     def _upsert_scores(self, hash_id: str, data: Dict[str, Any]) -> None:
         """Update scores in the database"""
-        data["hash"] = hash_id
-        self.db_client.update_leaderboard_success(hash=hash_id, status=data["status"], total_score=data["total_score"], notes=data["notes"])
+        logger.info("UPSERTING SUCCESS")
+        self.db_client.update_leaderboard_success(
+            hash=hash_id, status=data["status"], total_score=data["total_score"], notes=data["notes"]
+        )
         # self.db_client.upsert_row(data)
 
 

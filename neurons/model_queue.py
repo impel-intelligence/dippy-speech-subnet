@@ -42,6 +42,10 @@ import os
 from common.event_logger import EventLogger
 from bittensor.core.subtensor import Subtensor
 from bittensor.core.metagraph import Metagraph
+from dotenv import load_dotenv
+
+# Load environment variables from a .env file
+load_dotenv()
 
 l = LocalMetadata(commit="x", btversion="x")
 

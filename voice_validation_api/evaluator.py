@@ -116,6 +116,15 @@ class Evaluator:
 
         self.logger.debug("env", env=env)
         self.logger.info("image", image=self.image_name)
+        
+        # Check if the image exists
+        try:
+            self.client.images.get(self.image_name)
+        except docker.errors.ImageNotFound:
+            raise RuntimeError(f"Image '{self.image_name}' not found. Please pull or build the image before proceeding.")
+        except docker.errors.APIError as e:
+            raise RuntimeError(f"Error while checking for image '{self.image_name}': {str(e)}")
+
 
         container = self.client.containers.run(
             image=self.image_name,
