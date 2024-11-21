@@ -175,8 +175,11 @@ class Evaluator:
                         },
                     )
 
+                    container.stop()
+                    container.remove()
                     if not self.trace:
                         try:
+                            container.stop()
                             container.remove()
                         except Exception as e:
                             self.logger.error("container_remove_error")
@@ -184,6 +187,7 @@ class Evaluator:
         except Exception as e:
             self.logger.error("docker_error", error=e)
             if not self.trace:
+                container.stop()
                 container.remove()
             return {"error": str(e)}
 
