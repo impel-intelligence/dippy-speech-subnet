@@ -38,7 +38,7 @@ class Persistence:
         migrations_path="./voice_validation_api/migrations",
     ):
         self.logger = logging.getLogger(__name__)
-        self.pool = ConnectionPool(connection_string, kwargs={"row_factory": dict_row}, min_size=5, max_size=20)
+        self.pool = ConnectionPool(connection_string, kwargs={"row_factory": dict_row}, min_size=5, max_size=20, timeout=30)
         self.migrations_path = migrations_path
 
     def ensure_connection(self) -> bool:

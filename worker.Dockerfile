@@ -32,6 +32,4 @@ RUN uv pip install -e .
 
 COPY voice_validation_api/worker_queue.py .
 
-CMD ["python", "worker_queue.py"]
-
-
+ENTRYPOINT ["python", "worker_queue.py", "--queue", "4"]
