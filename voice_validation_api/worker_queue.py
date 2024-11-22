@@ -17,23 +17,32 @@ from voice_validation_api.evaluator import Evaluator, HumanSimilarityScore, RunE
 from voice_validation_api.pg_persistence import Persistence
 
 logger = logging.getLogger(__name__)
+psycopg_logger = logging.getLogger("psycopg")
+psycopg_logger.setLevel(logging.DEBUG)
 
 # Load environment variables from a .env file
 load_dotenv()
 
 
 class WorkerQueue:
-    GPU_ID_MAP = {0: "0", 1: "0", 2: "4,5", 3: "6,7", 4: "8,9"}
+    # GPU_ID_MAP = {0: "0", 1: "0", 2: "4,5", 3: "6,7", 4: "8,9"}
+    GPU_ID_MAP = {
+        0: "0",  # Queue 0 uses GPU 0
+        1: "1",  # Queue 1 uses GPU 1
+        2: "2",  # Queue 2 uses GPU 2
+        3: "3",  # Queue 3 uses GPU 3
+    }
 
     def __init__(self, image_name: str = "speech:latest", stub: bool = False):
-        postgres_url = os.getenv("POSTGRES_URL")
-        self.db_client = Persistence(postgres_url)
+        self.postgres_url = os.getenv("POSTGRES_URL")
+        # self.db_client = Persistence(postgres_url)
         self.event_logger = EventLogger()
         self.stub = stub
         self.image_name = image_name
 
     def model_evaluation_queue(self, queue_id: int) -> None:
         """Main queue processing loop for a single worker"""
+        self.db_client = Persistence(self.postgres_url)
         try:
             while True:
                 self._model_evaluation_step(queue_id)
@@ -43,8 +52,8 @@ class WorkerQueue:
             logger.error(f"queue_error, queue_id={queue_id}, error={str(e)}")
 
     def start_staggered_queues(self, num_queues: int, stagger_seconds: int) -> List[multiprocessing.Process]:
-        if not self.db_client.ensure_connection():
-            raise Exception("Could not connect to database")
+        # if not self.db_client.ensure_connection():
+        #     raise Exception("Could not connect to database")
         """Start multiple queue processes with staggered timing"""
         processes: List[multiprocessing.Process] = []
         for i in range(num_queues):
