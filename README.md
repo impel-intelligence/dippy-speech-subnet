@@ -108,24 +108,23 @@ python neurons/miner.py \
     --model_hash MODEL_HASH \          # Replace with the hash of your model
     --wallet.name WALLET_NAME \        # Replace with the name of your wallet coldkey name
     --wallet.hotkey HOTKEY \           # Replace with your wallet hotkey name
-    --wallet.path WALLET_PATH \        # Replace with the path to your wallet directory (e.g., "/home/ubuntu/.bittensor/wallets/" )
+    --wallet.path WALLET_PATH \        # Replace with the path to your wallet directory (e.g.,  "~/.bittensor/wallets/" )
     --logging.debug DEBUG              # Set to True for debug logging (or False for production)
-
 ```
 ### Example
 
 ```bash
-python neurons/miner.py     
-   --repo_namespace parler-tts     
+python neurons/miner.py \    
+   --repo_namespace parler-tts  \   
    --repo_name parler-tts-mini-v1     
-   --config_template default     
-   --netuid 231     
-   --subtensor.network test     
-   --online True     
-   --model_hash 555     
-   --wallet.name coldkey2     
-   --wallet.hotkey hotkey2     
-   --wallet.path "/home/ubuntu/.bittensor/wallets/"     
+   --config_template default \    
+   --netuid 231 \    
+   --subtensor.network test   \  
+   --online True  \   
+   --model_hash 555    \ 
+   --wallet.name coldkey2    \ 
+   --wallet.hotkey hotkey2     \
+   --wallet.path "~/.bittensor/wallets/"  \ 
    --logging.debug True
 ```
 
@@ -134,19 +133,44 @@ python neurons/miner.py
 
 #### Requirements
 - Python 3.9+
+- [UV python package manager](https://pypi.org/project/uv/)
+
 
 
 #### Setup
 To start, clone the repository and `cd` to it:
-```
-git clone https://github.com/impel-intelligence/dippy-bittensor-subnet.git
-cd dippy-bittensor-subnet
-pip install -e .
+```bash
+git clone https://github.com/impel-intelligence/dippy-speech-subnet.git
+cd dippy-speech-subnet
+
+uv venv .validator
+source .validator/bin/activate
+
+uv pip install -r requirements.validator.txt
+uv pip install -e .
 ```
 To run the evaluation, simply use the following command:
 
-``` 
-python neurons/validator.py --wallet.name WALLET_NAME --wallet.hotkey WALLET_HOT_NAME --wandb-key WANDBKEY
+```bash
+python neurons/validator.py \
+    --wallet.name WALLET_NAME \           # Replace with the name of your wallet coldkey (e.g., coldkey4)
+    --wallet.hotkey HOTKEY \              # Replace with your wallet hotkey name (e.g., hotkey4)
+    --device DEVICE \                     # Replace with the device to use (e.g., cpu or cuda)
+    --netuid NETUID \                     # Replace with the unique network identifier (e.g., 231)
+    --subtensor.network NETWORK \         # Replace with the network name (e.g., test or finney)
+    --wallet.path WALLET_PATH             # Replace with the path to your wallet directory (e.g., "~/.bittensor/wallets/")
+
+```
+
+```bash
+ python neurons/validator.py \ 
+   --wallet.name coldkey4 \
+   --wallet.hotkey hotkey4 \
+   --device cuda \
+   --netuid 231  \
+   --subtensor.network finney \
+   --wallet.path "~/.bittensor/wallets/" 
+ 
 ```
 
 To run auto-updating validator with PM2 (recommended):
