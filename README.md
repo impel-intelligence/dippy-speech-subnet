@@ -79,9 +79,10 @@ testing and benchmarking protocols with state-of-the-art datasets.
 - GPU with at least 24 GB of VRAM
 
 ### Step 1: Setup
-To start, clone the repository and `cd` to it:
-```
-git clone https://github.com/impel-intelligence/dippy-bittensor-subnet.git
+To start, clone the repository and `cd` into it:
+
+```bash
+git clone https://github.com/impel-intelligence/dippy-speech-subnet.git
 cd dippy-speech-subnet
 pip install -e .
 ```
