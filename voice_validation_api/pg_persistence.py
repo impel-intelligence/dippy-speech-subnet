@@ -479,6 +479,57 @@ class Persistence:
                     conn.rollback()
                     self.logger.error(f"Error upserting hash entry: {e}")
                     return None
+    def insert(self, entry: Dict, hash: str) -> bool:
+        """Inserts a hash entry and returns True if successful, False if entry exists or on error"""
+        with self.pool.connection() as conn:
+            with conn.cursor() as cur:
+                try:
+                    # Check if entry already exists
+                    cur.execute("SELECT hash FROM hash_entries WHERE hash = %s", (hash,))
+                    if cur.fetchone() is not None:
+                        return False
+
+                    # Convert entry dict to proper format
+                    hash_entry = {
+                        "hash": hash,
+                        "repo_namespace": entry.get("repo_namespace"),
+                        "repo_name": entry.get("repo_name"), 
+                        "total_score": entry.get("total_score", 0),
+                        "status": entry.get("status"),
+                        "notes": entry.get("notes", ""),
+                        "timestamp": entry.get("timestamp"),
+                    }
+
+                    # Insert the record
+                    cur.execute(
+                        """
+                        INSERT INTO hash_entries (
+                            hash,
+                            repo_namespace,
+                            repo_name,
+                            total_score,
+                            status,
+                            notes,
+                            timestamp
+                        ) VALUES (
+                            %(hash)s,
+                            %(repo_namespace)s,
+                            %(repo_name)s,
+                            %(total_score)s,
+                            %(status)s,
+                            %(notes)s,
+                            %(timestamp)s
+                        )
+                        """,
+                        hash_entry,
+                    )
+
+                    conn.commit()
+                    return True
+                except psycopg.Error as e:
+                    conn.rollback()
+                    self.logger.error(f"Error inserting hash entry: {e}")
+                    return False
 
     def fetch_all_miner_entries(self) -> Optional[List[Dict]]:
         """Gets all miner entries with their corresponding hash entry data"""

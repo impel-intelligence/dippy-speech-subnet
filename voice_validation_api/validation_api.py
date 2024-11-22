@@ -55,12 +55,13 @@ class AdminKeyMiddleware:
         return api_key
 
 class ValidationAPI:
-    def __init__(self):
+    def __init__(self, retries: int = 3):
         self.app = FastAPI()
         self.router = APIRouter()
         self.admin_key = os.environ.get("ADMIN_KEY", "admin_key")
         self.hf_api = HfApi()
         self.event_logger_enabled = False
+        self.retries = retries
         self.setup_routes()
         self.setup_state()
 
@@ -240,9 +241,12 @@ class ValidationAPI:
         if not self.repository_exists(repo_id):
             failure_notes = f"Huggingface repo not public: {repo_id}"
             early_failure = True
-
         try:
-            current_entry = self.db_client.get_from_hash(request.hash)
+            retries = self.retries
+            current_entry = None
+            while retries > 0 and current_entry is None:
+                current_entry = self.db_client.get_from_hash(request.hash)
+                retries -= 1
             if current_entry is not None and early_failure:
                 logger.error(failure_notes)
                 internal_entry = self.db_client.get_internal_result(request.hash)
@@ -275,7 +279,8 @@ class ValidationAPI:
         logger.info("QUEUING: " + str(new_entry_dict))
 
         last_model = self.db_client.last_uploaded_model(request.hotkey)
-        if last_model is not None:
+        # Temp guard against rate limiting
+        if last_model is not None and self.retries > 10:
             last_model_status = StatusEnum.from_string(last_model["status"])
             if last_model_status != StatusEnum.FAILED:
                 last_block = last_model.get("block", request.block)
@@ -289,7 +294,10 @@ class ValidationAPI:
                     logger.error(failure_notes)
                     new_entry_dict = self.update_failure(new_entry_dict, failure_notes)
 
-        return self.db_client.upsert_and_return(new_entry_dict, request.hash)
+
+        inserted = self.db_client.insert(new_entry_dict, request.hash)
+        status = StatusEnum.QUEUED if inserted else StatusEnum.FAILED 
+        return {"status":status}
 
     def hc(self):
         """GET /hc - Health check endpoint"""

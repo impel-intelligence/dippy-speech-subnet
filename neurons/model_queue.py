@@ -307,9 +307,10 @@ class ModelQueue:
                     result = await response.json()
                     if result is None:
                         raise RuntimeError(f"no leaderboard entry exists at this time for {payload}")
-                        
-                    status = StatusEnum.from_string(result["status"])
-                    score_data.status = status
+                    if "status" in result:
+                        status = StatusEnum.from_string(result["status"])
+                        score_data.status = status
+
         except Exception as e:
             self.logger.error(e)
             self.logger.error(f"Failed to get score and status for {namespace}/{name}")
