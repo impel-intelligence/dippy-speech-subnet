@@ -266,6 +266,7 @@ python voice_validation_api/validation_api.py
 ```
 
 
+
 #### Running the validator with your own validation API service running locally
 ```bash
 # Make a separate venv for the validator because of pydantic version conflict
