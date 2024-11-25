@@ -98,6 +98,17 @@ We outline the following criteria for Phase 1:
 Once you're happy with the performance of the model for the usecase of Roleplay, you can simply submit it to Hugging Face 🤗 and then use the following command:
 
 ```bash
+git clone https://github.com/impel-intelligence/dippy-speech-subnet.git
+cd dippy-speech-subnet
+
+uv venv .miner
+source .miner/bin/activate
+
+uv pip install -r requirements.miner.txt
+uv pip install -e .
+```
+
+```bash
 python neurons/miner.py \
     --repo_namespace REPO_NAMESPACE \  # Replace with the namespace of your repository (e.g., parler-tts)
     --repo_name REPO_NAME \            # Replace with the name of your repository (e.g., parler-tts-mini-v1)
@@ -173,11 +184,6 @@ python neurons/validator.py \
  
 ```
 
-To run auto-updating validator with PM2 (recommended):
-```bash
-pm2 start --name sn231-vali-updater --interpreter python scripts/start_validator.py -- --pm2_name sn231-vali --wallet.name WALLET_NAME --wallet.hotkey WALLET_HOT_NAME [other vali flags]
-```
-
 Please note that this validator will call the model validation service hosted by the dippy subnet owners. If you wish to run the model validation service locally, please follow the instructions below.
 
 
@@ -186,7 +192,7 @@ Please note that this validator will call the model validation service hosted by
 
 ## Running the model evaluation API (Experimental)
 
-**Note**: Currently (Novembar 22 2024) this is experimental. We recommend using the remote validation api temporarily.
+**Note**: Currently (November 22 2024) this is experimental. We recommend using the remote validation api temporarily.
 
 Starting a validator using your local validator API requires starting validator with `--use-local-validation-api` flag. 
 Additionally, a "model_queue"  and "worker" is required to push models to the validation api.
