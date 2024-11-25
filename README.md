@@ -72,136 +72,130 @@ Given the complexity of creating a state of the art speech model, we plan to div
 testing and benchmarking protocols with state-of-the-art datasets.
 
 
-## Running Miners and Validators
-### Running a Miner
+## Running a Miner to Submit a Model
 
-#### Requirements
+### Requirements
 - Python 3.8+
 - GPU with at least 24 GB of VRAM
 
-#### Setup
-To start, clone the repository and `cd` to it:
-```
-git clone https://github.com/impel-intelligence/dippy-bittensor-subnet.git
-cd dippy-bittensor-subnet
+### Step 1: Setup
+To start, clone the repository and `cd` into it:
+
+```bash
+git clone https://github.com/impel-intelligence/dippy-speech-subnet.git
+cd dippy-speech-subnet
 pip install -e .
 ```
-#### Submitting a model
+### Step 2: Submitting a model
 As a miner, you're responsible for leveraging all methods available at your disposal to finetune the provided base model.
 
 We outline the following criteria for Phase 1:
 
 - Models should be a fine-tune of the 880M Parler-TTS model.
-- Models MUST be Safetensors Format! Check upload_models.py for how the model upload precheck works.
+- Models MUST be Safetensors Format!
 - **Model**: We currently use [Parler TTS Mini v1 on Hugging Face](https://huggingface.co/parler-tts/parler-tts-mini-v1) as our base model.
 
 Once you're happy with the performance of the model for the usecase of Roleplay, you can simply submit it to Hugging Face 🤗 and then use the following command:
 
 ```bash
-python3 dippy_subnet/upload_model.py --hf_repo_id HF_REPO --wallet.name WALLET  --wallet.hotkey HOTKEY --chat_template MODEL_CHAT_TEMPLATE --model_dir PATH_TO_MODEL   
+git clone https://github.com/impel-intelligence/dippy-speech-subnet.git
+cd dippy-speech-subnet
+
+uv venv .miner
+source .miner/bin/activate
+
+uv pip install -r requirements.miner.txt
+uv pip install -e .
+```
+
+```bash
+python neurons/miner.py \
+    --repo_namespace REPO_NAMESPACE \  # Replace with the namespace of your repository (e.g., parler-tts)
+    --repo_name REPO_NAME \            # Replace with the name of your repository (e.g., parler-tts-mini-v1)
+    --config_template CONFIG_TEMPLATE \  # Replace with the miner configuration template (e.g., default)
+    --netuid NETUID \                  # Replace with the unique network identifier (e.g., 231)
+    --subtensor.network NETWORK \      # Replace with the network (e.g., test or finney)
+    --online ONLINE \                  # Set to True to enable mining
+    --model_hash MODEL_HASH \          # Replace with the hash of your model
+    --wallet.name WALLET_NAME \        # Replace with the name of your wallet coldkey name
+    --wallet.hotkey HOTKEY \           # Replace with your wallet hotkey name
+    --wallet.path WALLET_PATH \        # Replace with the path to your wallet directory (e.g.,  "~/.bittensor/wallets/" )
+    --logging.debug DEBUG              # Set to True for debug logging (or False for production)
+```
+### Example
+
+```bash
+python neurons/miner.py \    
+   --repo_namespace parler-tts  \   
+   --repo_name parler-tts-mini-v1     
+   --config_template default \    
+   --netuid 231 \    
+   --subtensor.network test   \  
+   --online True  \   
+   --model_hash 555    \ 
+   --wallet.name coldkey2    \ 
+   --wallet.hotkey hotkey2     \
+   --wallet.path "~/.bittensor/wallets/"  \ 
+   --logging.debug True
 ```
 
 
-### Running a Validator
+## Running a Validator
 
 #### Requirements
 - Python 3.9+
-- API key for `wandb` (see below)
-
-## Setup WandB (HIGHLY RECOMMENDED - VALIDATORS PLEASE READ)
-
-Before running your validator, it is recommended to set up Weights & Biases (`wandb`). 
-The purpose of `wandb` is for tracking key metrics across validators to a publicly accessible page.
-[here](https://wandb.ai/dippyai/). 
-We ***highly recommend***
-validators use wandb, as it allows subnet developers and miners to diagnose issues more quickly and
-effectively, say, in the event a validator were to be set abnormal weights. Wandb logs are
-collected by default, and done so in an anonymous fashion, but we recommend setting up an account
-to make it easier to differentiate between validators when searching for runs on our dashboard. If
-you would *not* like to run WandB, you can do so by not providing the flag `--wandb-key` when running your
-validator.
-
-Before getting started, as mentioned previously, you'll first need to
-[register](https://wandb.ai/login?signup=true) for a `wandb` account, and then set your API key on
-your system. Here's a step-by-step guide on how to do this on Ubuntu:
-
-#### Step 1: Installation of WANDB
-
-Before logging in, make sure you have the `wandb` Python package installed. If you haven't installed
-it yet, you can do so using pip:
-
-```bash
-# Should already be installed with the repo
-pip install wandb
-```
-
-#### Step 2: Obtain Your API Key
-
-1. Log in to your Weights & Biases account through your web browser.
-2. Go to your account settings, usually accessible from the top right corner under your profile.
-3. Find the section labeled "API keys".
-4. Copy your API key. It's a long string of characters unique to your account.
-
-#### Step 3: Setting Up the API Key in Ubuntu
-
-To configure your WANDB API key on your Ubuntu machine, follow these steps:
-
-1. **Log into WANDB**: Run the following command in the terminal:
-
-   ```bash
-   wandb login
-   ```
-
-2. **Enter Your API Key**: When prompted, paste the API key you copied from your WANDB account
-   settings. 
-
-   - After pasting your API key, press `Enter`.
-   - WANDB should display a message confirming that you are logged in.
-
-3. **Verifying the Login**: To verify that the API key was set correctly, you can start a small
-   test script in Python that uses WANDB. If everything is set up correctly, the script should run
-   without any authentication errors.
-
-4. **Setting API Key Environment Variable (Optional)**: If you prefer not to log in every time, you
-   can set your API key as an environment variable in your `~/.bashrc` or `~/.bash_profile` file:
-
-   ```bash
-   echo 'export WANDB_API_KEY=your_api_key' >> ~/.bashrc
-   source ~/.bashrc
-   ```
-
-   Replace `your_api_key` with the actual API key. This method automatically authenticates you with
-   wandb every time you open a new terminal session.
+- [UV python package manager](https://pypi.org/project/uv/)
 
 
 
 #### Setup
 To start, clone the repository and `cd` to it:
-```
-git clone https://github.com/impel-intelligence/dippy-bittensor-subnet.git
-cd dippy-bittensor-subnet
-pip install -e .
+```bash
+git clone https://github.com/impel-intelligence/dippy-speech-subnet.git
+cd dippy-speech-subnet
+
+uv venv .validator
+source .validator/bin/activate
+
+uv pip install -r requirements.validator.txt
+uv pip install -e .
 ```
 To run the evaluation, simply use the following command:
 
-``` 
-python neurons/validator.py --wallet.name WALLET_NAME --wallet.hotkey WALLET_HOT_NAME --wandb-key WANDBKEY
+```bash
+python neurons/validator.py \
+    --wallet.name WALLET_NAME \           # Replace with the name of your wallet coldkey (e.g., coldkey4)
+    --wallet.hotkey HOTKEY \              # Replace with your wallet hotkey name (e.g., hotkey4)
+    --device DEVICE \                     # Replace with the device to use (e.g., cpu or cuda)
+    --netuid NETUID \                     # Replace with the unique network identifier (e.g., 231)
+    --subtensor.network NETWORK \         # Replace with the network name (e.g., test or finney)
+    --wallet.path WALLET_PATH             # Replace with the path to your wallet directory (e.g., "~/.bittensor/wallets/")
+
 ```
 
-To run auto-updating validator with PM2 (recommended):
 ```bash
-pm2 start --name sn11-vali-updater --interpreter python scripts/start_validator.py -- --pm2_name sn11-vali --wallet.name WALLET_NAME --wallet.hotkey WALLET_HOT_NAME [other vali flags]
+ python neurons/validator.py \ 
+   --wallet.name coldkey4 \
+   --wallet.hotkey hotkey4 \
+   --device cuda \
+   --netuid 231  \
+   --subtensor.network finney \
+   --wallet.path "~/.bittensor/wallets/" 
+ 
 ```
 
 Please note that this validator will call the model validation service hosted by the dippy subnet owners. If you wish to run the model validation service locally, please follow the instructions below.
 
 
-### Running the model evaluation API (Optional)
 
-**Note**: Currently (June 17 2024) there are some issues with the local evaluation api. We recommend using the remote validation api temporarily.
+
+
+## Running the model evaluation API (Experimental)
+
+**Note**: Currently (November 22 2024) this is experimental. We recommend using the remote validation api temporarily.
 
 Starting a validator using your local validator API requires starting validator with `--use-local-validation-api` flag. 
-Additionally, a model queue is required to push models to the validation api.
+Additionally, a "model_queue"  and "worker" is required to push models to the validation api.
 
 **Note**: Validator API needs to be installed in a different venv than validator due to `pydantic` version conflict. 
 
@@ -209,8 +203,9 @@ Additionally, a model queue is required to push models to the validation api.
 ### Requirements
 - Python 3.9+
 - Linux
+- [UV python package manager](https://pypi.org/project/uv/)
 
-#### Setup
+### Setup
 
 Install Git Lfs if not installed.
 ```bash
@@ -223,46 +218,73 @@ If you are running on runpod you might also need to install 'netstat'.
 apt-get install net-tools
 ```
 
-To start, clone the repository and `cd` into it:
+### Step 1 - Run Worker
+
+Build Evaluator Image
 ```bash
-git clone https://github.com/impel-intelligence/dippy-bittensor-subnet.git
-cd dippy-bittensor-subnet
-python3 -m venv model_validation_venv
-source model_validation_venv/bin/activate
-model_validation_venv/bin/pip install -e . --no-deps
-model_validation_venv/bin/pip install -r requirements_val_api.txt
+cd dippy-speech-subnet
+docker build -f evaluator.Dockerfile -t speech .
 ```
 
-#### Run model validation API service
-(Note: there are currently breaking changes that pose challenges to running a local validation API service)
+Build Worker Image
 ```bash
-cd dippy_validation_api
-chmod +x start_validation_service.sh
-./start_validation_service.sh
+docker build -f worker.Dockerfile -t worker-image .
 ```
 
-### Test that it's working
+Run Worker Image
 ```bash
-python3 test_api.py
+docker run -d --name worker-container -v /var/run/docker.sock:/var/run/docker.sock worker-image
 ```
-And you should see a json showing that the model status is "QUEUED"
-Running the same command again for sanity's sake, you should see the status of the model as "RUNNING".
+
+Stream Logs:
+```bash
+docker logs -f worker-container
+```
+
+### Step 2 - Run Model Queue
+
+Build Model Queue Image:
+```bash
+docker build -f modelq.Dockerfile -t modelq-image .
+```
+
+Run Model Queue Image:
+```bash
+docker run -d --name modelq-container modelq-image
+```
+
+Stream Logs:
+```bash
+docker logs -f modelq-container
+```
 
 
-#### Stop model validation API service
+### Run the Validation API
+
+Set .env variable:
 ```bash
-chmod +x kill_validation_api.sh
-./kill_validation_api.sh
+POSTGRES_URL=xxxxxxxxxx
 ```
+
+```bash
+python voice_validation_api/validation_api.py
+
+```
+
+
 
 #### Running the validator with your own validation API service running locally
 ```bash
 # Make a separate venv for the validator because of pydantic version conflict
-python -m venv validator_venv
-validator_venv/bin/pip install -e .
-validator_venv/bin/python neurons/validator.py --wallet.name WALLET_NAME --wallet.hotkey WALLET_HOT_NAME --use-local-validation-api
+uv venv .validator
+source .validator/bin/activate
+
+uv pip install -e .
+python neurons/validator.py --wallet.name WALLET_NAME --wallet.hotkey WALLET_HOT_NAME --use-local-validation-api
 # Run model queue to push models to validation api to be evaluated
-validator_venv/bin/python neurons/model_queue.py --use-local-validation-api
+python neurons/model_queue.py --use-local-validation-api
+
+python voice_validation_api/worker_queue.py 
 ```
 ## Model Evaluation Criteria
 ### Human Likeness Score
