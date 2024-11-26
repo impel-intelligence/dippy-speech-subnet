@@ -39,6 +39,19 @@ if not postgres_url:
     )
 
 
+# Check for mandatory ADMIN_KEY
+admin_key = os.environ.get("ADMIN_KEY")
+if not admin_key:
+    logger.error(
+        "Critical Error: Environment variable ADMIN_KEY is not set. "
+        "Please ensure a .env file exists and defines ADMIN_KEY with the appropriate key."
+    )
+    raise RuntimeError(
+        "Environment variable ADMIN_KEY is missing. Refer to the documentation to configure your .env file."
+    )
+
+
+
 class EventData(BaseModel):
     commit: str
     btversion: str

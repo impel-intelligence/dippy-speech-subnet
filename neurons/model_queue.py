@@ -15,7 +15,7 @@
 # THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION
 # OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER
 # DEALINGS IN THE SOFTWARE.
-
+import logging
 import asyncio
 from dataclasses import dataclass
 import datetime as dt
@@ -45,49 +45,63 @@ from bittensor.core.metagraph import Metagraph
 from dotenv import load_dotenv
 
 # Load environment variables from a .env file
-load_dotenv()
+load_dotenv(override=True)
 
 l = LocalMetadata(commit="x", btversion="x")
 
+logger = logging.getLogger("uvicorn")
+logging.basicConfig(level=logging.ERROR)
 
-def push_minerboard(
-    hash: str,
-    uid: int,
-    hotkey: str,
-    block: int,
-    config,
-    local_metadata: LocalMetadata,
-    retryWithRemote: bool = False,
-) -> None:
-    if config.use_local_validation_api and not retryWithRemote:
-        validation_endpoint = f"http://localhost:{config.local_validation_api_port}/minerboard_update"
-    else:
-        validation_endpoint = f"{constants.VALIDATION_SERVER}/minerboard_update"
+# Check for mandatory ADMIN_KEY
+admin_key = os.environ.get("ADMIN_KEY")
+if not admin_key:
+    logger.error(
+        "Critical Error: Environment variable ADMIN_KEY is not set. "
+        "Please ensure a .env file exists and defines ADMIN_KEY with the appropriate key."
+    )
+    raise RuntimeError(
+        "Environment variable ADMIN_KEY is missing. Refer to the documentation to configure your .env file."
+    )
 
-    # Construct the payload with the model name and chat template type
-    payload = {
-        "hash": hash,
-        "uid": uid,
-        "hotkey": hotkey,
-        "block": block,
-    }
 
-    headers = {
-        "Git-Commit": str(local_metadata.commit),
-        "Bittensor-Version": str(local_metadata.btversion),
-        "UID": str(local_metadata.uid),
-        "Hotkey": str(local_metadata.hotkey),
-        "Coldkey": str(local_metadata.coldkey),
-    }
-    if os.environ.get("ADMIN_KEY", None) not in [None, ""]:
-        payload["admin_key"] = os.environ["ADMIN_KEY"]
+# def push_minerboard(
+#     hash: str,
+#     uid: int,
+#     hotkey: str,
+#     block: int,
+#     config,
+#     local_metadata: LocalMetadata,
+#     retryWithRemote: bool = False,
+# ) -> None:
+#     if config.use_local_validation_api and not retryWithRemote:
+#         validation_endpoint = f"http://localhost:{config.local_validation_api_port}/minerboard_update"
+#     else:
+#         validation_endpoint = f"{constants.VALIDATION_SERVER}/minerboard_update"
 
-    # Make the POST request to the validation endpoint
-    try:
-        response = requests.post(validation_endpoint, json=payload, headers=headers)
-        response.raise_for_status()  # Raise an exception for HTTP errors
-    except Exception as e:
-        print(e)
+#     # Construct the payload with the model name and chat template type
+#     payload = {
+#         "hash": hash,
+#         "uid": uid,
+#         "hotkey": hotkey,
+#         "block": block,
+#     }
+
+#     headers = {
+#         "Git-Commit": str(local_metadata.commit),
+#         "Bittensor-Version": str(local_metadata.btversion),
+#         "UID": str(local_metadata.uid),
+#         "Hotkey": str(local_metadata.hotkey),
+#         "Coldkey": str(local_metadata.coldkey),
+#     }
+#     if os.environ.get("ADMIN_KEY", None) not in [None, ""]:
+#         payload["admin_key"] = os.environ["ADMIN_KEY"]
+
+#     # Make the POST request to the validation endpoint
+#     try:
+#         response = requests.post(validation_endpoint, json=payload, headers=headers)
+#         response.raise_for_status()  # Raise an exception for HTTP errors
+#     except Exception as e:
+#         print(e)
 
 @dataclass
 class MinerInfo:
@@ -178,7 +192,7 @@ class ModelQueue:
                     block=block,
                     hotkey=hotkey,
                     config=self.config,
-                    retryWithRemote=True,
+                    retryWithRemote=False,
                 )
                 stats = f"{result.status} : uid: {uid} hotkey : {hotkey} block: {block} model_metadata : {model_id}"
                 self.logger.info(stats)
@@ -190,7 +204,7 @@ class ModelQueue:
                     block=block,
                     local_metadata=l,
                     config=self.config,
-                    retryWithRemote=True,
+                    retryWithRemote=False,
                 )
                 
                 return result.status
