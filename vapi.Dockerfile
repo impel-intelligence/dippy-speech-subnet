@@ -20,11 +20,12 @@ COPY utilities ./utilities
 COPY common ./common
 COPY constants ./constants
 # Required for self installing module
+COPY .env .
 COPY README.md .
 COPY pyproject.toml .
 COPY .git .git
 RUN uv pip install -e .
 
-COPY voice_validation_api/validation_api.py .
+COPY voice_validation_api/app/api/validation_api.py .
 
 CMD ["python", "validation_api.py"]

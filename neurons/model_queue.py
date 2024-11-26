@@ -153,7 +153,7 @@ class ModelQueue:
                     block=block,
                     hotkey=hotkey,
                     config=self.config,
-                    retryWithRemote=False,
+                    retryWithRemote=True,
                 )
                 stats = f"{result.status} : uid: {uid} hotkey : {hotkey} block: {block} model_metadata : {model_id}"
                 self.logger.info(stats)
@@ -165,7 +165,7 @@ class ModelQueue:
                     block=block,
                     local_metadata=l,
                     config=self.config,
-                    retryWithRemote=False,
+                    retryWithRemote=True,
                 )
 
                 return result.status
@@ -255,7 +255,7 @@ class ModelQueue:
         config,
         retryWithRemote: bool = False,
     ) -> Scores:
-        if config.use_local_validation_api and not retryWithRemote:
+        if config.use_local_validation_api and retryWithRemote:
             validation_endpoint = f"http://localhost:{config.local_validation_api_port}/ensure_model"
         else:
             validation_endpoint = f"{constants.VALIDATION_SERVER}/ensure_model"
@@ -302,7 +302,7 @@ class ModelQueue:
         local_metadata: LocalMetadata,
         retryWithRemote: bool = False,
     ) -> None:
-        if config.use_local_validation_api and not retryWithRemote:
+        if config.use_local_validation_api and retryWithRemote:
             validation_endpoint = f"http://localhost:{config.local_validation_api_port}/minerboard_update"
         else:
             validation_endpoint = f"{constants.VALIDATION_SERVER}/minerboard_update"
