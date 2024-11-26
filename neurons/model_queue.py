@@ -15,34 +15,31 @@
 # THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION
 # OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER
 # DEALINGS IN THE SOFTWARE.
-import logging
-import asyncio
-from dataclasses import dataclass
-import datetime as dt
-import time
+
+
 import argparse
-import requests
-import aiohttp
-from asyncio import Semaphore
+import asyncio
+import datetime as dt
 
-
-import math
+import logging
+import os
+import time
 import typing
-import constants
-import traceback
-import bittensor as bt
-
+from asyncio import Semaphore
+from dataclasses import dataclass
 from typing import Dict, Optional
 
-from common.scores import StatusEnum, Scores
-from common.model_id import ModelId
-from common.validation_utils import LocalMetadata
-import os
-
-from common.event_logger import EventLogger
-from bittensor.core.subtensor import Subtensor
+import aiohttp
+import bittensor as bt
 from bittensor.core.metagraph import Metagraph
+from bittensor.core.subtensor import Subtensor
 from dotenv import load_dotenv
+
+import constants
+from common.event_logger import EventLogger
+from common.model_id import ModelId
+from common.scores import Scores, StatusEnum
+from common.validation_utils import LocalMetadata
 
 # Load environment variables from a .env file
 load_dotenv(override=True)
@@ -64,49 +61,11 @@ if not admin_key:
     )
 
 
-# def push_minerboard(
-#     hash: str,
-#     uid: int,
-#     hotkey: str,
-#     block: int,
-#     config,
-#     local_metadata: LocalMetadata,
-#     retryWithRemote: bool = False,
-# ) -> None:
-#     if config.use_local_validation_api and not retryWithRemote:
-#         validation_endpoint = f"http://localhost:{config.local_validation_api_port}/minerboard_update"
-#     else:
-#         validation_endpoint = f"{constants.VALIDATION_SERVER}/minerboard_update"
-
-#     # Construct the payload with the model name and chat template type
-#     payload = {
-#         "hash": hash,
-#         "uid": uid,
-#         "hotkey": hotkey,
-#         "block": block,
-#     }
-
-#     headers = {
-#         "Git-Commit": str(local_metadata.commit),
-#         "Bittensor-Version": str(local_metadata.btversion),
-#         "UID": str(local_metadata.uid),
-#         "Hotkey": str(local_metadata.hotkey),
-#         "Coldkey": str(local_metadata.coldkey),
-#     }
-#     if os.environ.get("ADMIN_KEY", None) not in [None, ""]:
-#         payload["admin_key"] = os.environ["ADMIN_KEY"]
-
-#     # Make the POST request to the validation endpoint
-#     try:
-#         response = requests.post(validation_endpoint, json=payload, headers=headers)
-#         response.raise_for_status()  # Raise an exception for HTTP errors
-#     except Exception as e:
-#         print(e)
-
 @dataclass
 class MinerInfo:
     hotkey: str
     metadata: Optional[Dict] = None
+
 
 class ModelQueue:
     @staticmethod
@@ -136,16 +95,16 @@ class ModelQueue:
 
     def __init__(self):
         config = ModelQueue.config()
-        
+
         self.config = config
         self.netuid = self.config.netuid or 231
         # network = self.config.subtensor.network or "test"
         network = "test"
         self.subtensor = Subtensor(network)
-        
+
         self.metagraph = Metagraph(netuid=self.netuid, network=network, lite=True, sync=True)
         self.metagraph.sync(subtensor=self.subtensor)
-        
+
         logfilepath = "/tmp/modelq/{time:UNIX}.log"
         self.logger = EventLogger(
             filepath=logfilepath,
@@ -166,13 +125,15 @@ class ModelQueue:
             self.logger.info(f"sleeping for {sleep_time}")
             if not self.config.immediate:
                 time.sleep(sleep_time)
-            
+
             try:
                 asyncio.run(self.load_latest_metagraph())
             except Exception as e:
                 self.logger.error(f"failed to queue {e}")
 
-    async def check_uid(self, uid: int, miner_info_map: typing.Dict[int, MinerInfo], semaphore: Semaphore) -> StatusEnum:
+    async def check_uid(
+        self, uid: int, miner_info_map: typing.Dict[int, MinerInfo], semaphore: Semaphore
+    ) -> StatusEnum:
         async with semaphore:  # Limit concurrent executions
             try:
                 miner_info = miner_info_map[uid]
@@ -181,7 +142,7 @@ class ModelQueue:
                 if metadata is None or "model_id" not in metadata:
                     self.logger.info(f"NO_METADATA : uid: {uid} hotkey : {hotkey}")
                     return StatusEnum.NO_METADATA
-                    
+
                 model_id = metadata["model_id"]
                 block = metadata["block"]
                 result = await self.ensure_model(
@@ -196,7 +157,7 @@ class ModelQueue:
                 )
                 stats = f"{result.status} : uid: {uid} hotkey : {hotkey} block: {block} model_metadata : {model_id}"
                 self.logger.info(stats)
-                
+
                 await self.push_minerboard(
                     hash=model_id.hash,
                     uid=uid,
@@ -206,9 +167,9 @@ class ModelQueue:
                     config=self.config,
                     retryWithRemote=False,
                 )
-                
+
                 return result.status
-                
+
             except Exception as e:
                 self.logger.error(f"exception for uid {uid} : {e}")
                 return StatusEnum.ERROR
@@ -223,7 +184,7 @@ class ModelQueue:
             self.logger.info("empty metagraph")
             return
         hotkeys = latest_metagraph.hotkeys
-        
+
         # Create mapping of uid -> MinerInfo
         miner_info_map: Dict[int, MinerInfo] = {}
         for uid in all_uids:
@@ -231,8 +192,8 @@ class ModelQueue:
             try:
                 metadata = bt.core.extrinsics.serving.get_metadata(self.subtensor, self.netuid, hotkey)
                 if not metadata:
-                    raise RuntimeError(f"no metadata exists for {uid}") 
-                
+                    raise RuntimeError(f"no metadata exists for {uid}")
+
                 commitment = metadata["info"]["fields"][0]
                 hex_data = commitment[list(commitment.keys())[0]][2:]
                 chain_str = bytes.fromhex(hex_data).decode()
@@ -247,19 +208,19 @@ class ModelQueue:
                 print(f"could not fetch data for uid {uid}")
 
         queued = failed = no_metadata = completed = error = running = precheck = 0
-        
+
         # Create semaphore to limit concurrent tasks
         semaphore = Semaphore(max_tasks)
-        
+
         # Create tasks with semaphore
         tasks = [self.check_uid(uid, miner_info_map, semaphore) for uid in all_uids]
         results = await asyncio.gather(*tasks)
-            
+
         for status in results:
             if status == StatusEnum.QUEUED:
                 queued += 1
             elif status == StatusEnum.FAILED:
-                failed += 1 
+                failed += 1
             elif status == StatusEnum.NO_METADATA:
                 no_metadata += 1
             elif status == StatusEnum.COMPLETED:
@@ -270,11 +231,11 @@ class ModelQueue:
                 running += 1
             elif status == StatusEnum.PRECHECK:
                 precheck += 1
-            
+
         self.logger.info(
             f"Status counts:\n"
             f"NO_METADATA: {no_metadata}\n"
-            f"QUEUED: {queued}\n" 
+            f"QUEUED: {queued}\n"
             f"FAILED: {failed}\n"
             f"COMPLETED: {completed}\n"
             f"ERROR: {error}\n"
