@@ -30,8 +30,8 @@ RUN mkdir -p \
 RUN chmod 777 /tmp
 
 # Copy requirements first to leverage Docker cache
-COPY requirements_val_api.txt requirements_val_api.txt
-RUN uv pip install --system -r requirements_val_api.txt --no-build-isolation 
+COPY requirements.api.txt requirements.api.txt
+RUN uv pip install --system -r requirements.api.txt --no-build-isolation 
 
 
 # Copy project files maintaining directory structure

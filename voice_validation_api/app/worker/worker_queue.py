@@ -13,8 +13,8 @@ from dotenv import load_dotenv
 from common.event_logger import EventLogger
 from common.scores import Scores, StatusEnum
 from scoring.common import EvaluateModelRequest
-from voice_validation_api.evaluator import Evaluator, HumanSimilarityScore, RunError
-from voice_validation_api.pg_persistence import Persistence
+from voice_validation_api.app.evaluator.evaluator import Evaluator, HumanSimilarityScore, RunError
+from voice_validation_api.app.persistence.pg_persistence import Persistence
 
 logger = logging.getLogger(__name__)
 psycopg_logger = logging.getLogger("psycopg")

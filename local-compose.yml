@@ -18,46 +18,5 @@ services:
       timeout: 5s
       retries: 5
 
-  # vapi:
-  #   build:
-  #     context: .
-  #     dockerfile: dippy_validation_api/vapi.Dockerfile
-  #     args:
-  #       - DEBUG=${DEBUG:-false}
-  #   # command: ["tail","-f","/dev/null"]
-  #   command: >
-  #     sh -c "if [ \"$$DEBUG\" = \"true\" ]; then 
-  #       python -m jurigged -v /app/dippy_validation_api/validation_api.py --queues 0 --main-api-port 7001;
-  #     else
-  #       python validation_api.py --queues 0 --main-api-port 7001;
-  #     fi"
-  #   environment:
-  #     DATABASE_URL: postgresql://vapi_user:vapi_password@postgres:5432/vapi_db
-  #     DEBUG: ${DEBUG:-false}
-  #     # Jurigged needs this to work in Docker
-  #     PYTHONUNBUFFERED: 1
-  #   volumes:
-  #     - ./dippy_validation_api:/app/dippy_validation_api
-  #     - ./scoring:/app/scoring
-  #     - ./utilities:/app/utilities
-  #     - ./template:/app/template
-  #     - ./model:/app/model
-  #     - ./constants:/app/constants
-  #   ports:
-  #     - "7001:7001"
-  #   env_file:
-  #     - .env
-  #   depends_on:
-  #     postgres:
-  #       condition: service_healthy
-
-  # model_q:
-  #   build:
-  #     context: .
-  #     dockerfile: modelq.Dockerfile
-  #   command: ["python","model_queue.py","--subtensor.network", "test"]
-  #   env_file:
-  #     - .env
-
 volumes:
   postgres_data:
