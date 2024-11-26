@@ -13,7 +13,8 @@ from fastapi.security import APIKeyHeader
 from starlette.exceptions import HTTPException
 from starlette.status import HTTP_403_FORBIDDEN
 
-from voice_validation_api.pg_persistence import Persistence
+# from voice_validation_api.pg_persistence import Persistence
+from voice_validation_api.app.persistence.pg_persistence import Persistence
 from common.scores import StatusEnum
 from common.validation_utils import regenerate_hash
 from common.event_logger import EventLogger
@@ -25,6 +26,19 @@ BLOCK_RATE_LIMIT = 14400  # Every 14400 blocks = 48 hours
 logger = logging.getLogger("uvicorn")
 logging.basicConfig(level=logging.ERROR)
 
+
+# Check for mandatory POSTGRES_URL
+postgres_url = os.environ.get("POSTGRES_URL")
+if not postgres_url:
+    logger.error(
+        "Critical Error: Environment variable POSTGRES_URL is not set. "
+        "Please ensure a .env file exists and defines POSTGRES_URL with the appropriate database connection string."
+    )
+    raise RuntimeError(
+        "Environment variable POSTGRES_URL is missing. " "Refer to the documentation to configure your .env file."
+    )
+
+
 class EventData(BaseModel):
     commit: str
     btversion: str
@@ -34,12 +48,14 @@ class EventData(BaseModel):
     payload: Dict[Any, Any]
     signature: Dict[str, Any]
 
+
 class MinerboardRequest(BaseModel):
     uid: int
     hotkey: str
     hash: str
     block: int
     admin_key: Optional[str] = "admin_key"
+
 
 class AdminKeyMiddleware:
     def __init__(self, admin_key: str):
@@ -48,11 +64,9 @@ class AdminKeyMiddleware:
 
     async def __call__(self, api_key: str = Security(APIKeyHeader(name="admin-key"))):
         if not api_key or api_key != self.admin_key:
-            raise HTTPException(
-                status_code=HTTP_403_FORBIDDEN,
-                detail="Invalid or missing admin key"
-            )
+            raise HTTPException(status_code=HTTP_403_FORBIDDEN, detail="Invalid or missing admin key")
         return api_key
+
 
 class ValidationAPI:
     def __init__(self, retries: int = 3):
@@ -74,7 +88,7 @@ class ValidationAPI:
             logger.warning(f"Failed to create event logger: {e}")
 
         try:
-            self.db_client = Persistence(connection_string=os.environ.get("POSTGRES_URL"))
+            self.db_client = Persistence(connection_string=postgres_url)
             self.db_client.run_migrations()
         except Exception as e:
             logger.warning(f"Failed to create db client: {e}")
@@ -83,21 +97,15 @@ class ValidationAPI:
         """Register all routes with the router"""
         # Initialize admin middleware
         admin_auth = AdminKeyMiddleware(self.admin_key)
-        
+
         # Protected admin routes
         self.router.add_api_route(
-            "/minerboard_update", 
-            self.minerboard_update, 
-            methods=["POST"],
-            dependencies=[Depends(admin_auth)]
+            "/minerboard_update", self.minerboard_update, methods=["POST"], dependencies=[Depends(admin_auth)]
         )
         self.router.add_api_route(
-            "/ensure_model", 
-            self.ensure_model, 
-            methods=["POST"],
-            dependencies=[Depends(admin_auth)]
+            "/ensure_model", self.ensure_model, methods=["POST"], dependencies=[Depends(admin_auth)]
         )
-        
+
         # Unprotected routes
         self.router.add_api_route("/telemetry_report", self.telemetry_report, methods=["POST"])
         self.router.add_api_route("/event_report", self.event_report, methods=["POST"])
@@ -106,7 +114,7 @@ class ValidationAPI:
         self.router.add_api_route("/model_submission_details", self.get_model_submission_details, methods=["GET"])
         self.router.add_api_route("/hc", self.hc, methods=["GET"])
         self.router.add_api_route("/routes", self.get_routes, methods=["GET"])
-        
+
         # Include router in app
         self.app.include_router(self.router)
 
@@ -122,6 +130,7 @@ class ValidationAPI:
             if self.event_logger_enabled:
                 self.event_logger.error("hf_repo_error", error=e)
             return False
+
     @staticmethod
     def hash_check(request: EvaluateModelRequest) -> bool:
         hash_matches = int(request.hash) == regenerate_hash(
@@ -201,25 +210,26 @@ class ValidationAPI:
         if len(entries) < 1:
             return []
         return entries
-    
+
     """GET /model_submission_details - Endpoint for retrieving model submission details"""
+
     def get_model_submission_details(
-            self,
+        self,
         repo_namespace: str,
         repo_name: str,
         chat_template_type: str,
         hash: str,
         competition_id: Optional[str] = None,
         hotkey: Optional[str] = None,
-        ):
-        
+    ):
+
         request = EvaluateModelRequest(
-        repo_namespace=repo_namespace,
-        repo_name=repo_name,
-        chat_template_type=chat_template_type,
-        hash=hash,
-        hotkey=hotkey,
-    )
+            repo_namespace=repo_namespace,
+            repo_name=repo_name,
+            chat_template_type=chat_template_type,
+            hash=hash,
+            hotkey=hotkey,
+        )
         # verify hash
         hash_verified = self.hash_check(request)
         if not hash_verified:
@@ -227,17 +237,17 @@ class ValidationAPI:
 
         return self.db_client.get_json_result(request.hash)
 
-
     """POST /ensure_model - Protected endpoint for retrieving or creating a model entry"""
+
     def ensure_model(self, request: EvaluateModelRequest):
-        
+
         if not self.hash_check(request):
             raise HTTPException(status_code=400, detail="Hash does not match the model details")
 
         early_failure = False
         failure_notes = ""
         repo_id = f"{request.repo_namespace}/{request.repo_name}"
-        
+
         if not self.repository_exists(repo_id):
             failure_notes = f"Huggingface repo not public: {repo_id}"
             early_failure = True
@@ -254,7 +264,7 @@ class ValidationAPI:
                 return self.db_client.upsert_and_return(internal_entry, request.hash)
             if current_entry is not None:
                 return current_entry
-            
+
         except Exception as e:
             logger.error(f"error while fetching request {request} : {e}")
             return None
@@ -294,10 +304,9 @@ class ValidationAPI:
                     logger.error(failure_notes)
                     new_entry_dict = self.update_failure(new_entry_dict, failure_notes)
 
-
         inserted = self.db_client.insert(new_entry_dict, request.hash)
-        status = StatusEnum.QUEUED if inserted else StatusEnum.FAILED 
-        return {"status":status}
+        status = StatusEnum.QUEUED if inserted else StatusEnum.FAILED
+        return {"status": status}
 
     def hc(self):
         """GET /hc - Health check endpoint"""
@@ -307,11 +316,7 @@ class ValidationAPI:
         """GET /routes - Endpoint for retrieving all available routes"""
         routes = []
         for route in self.router.routes:
-            routes.append({
-                "path": route.path,
-                "methods": route.methods,
-                "name": route.name
-            })
+            routes.append({"path": route.path, "methods": route.methods, "name": route.name})
         return routes
 
     def start(self, main_api_port: int = 8000):
@@ -334,14 +339,17 @@ class ValidationAPI:
             return []
         return entries
 
+
 def start():
     import argparse
+
     parser = argparse.ArgumentParser(description="Run the server")
     parser.add_argument("--main-api-port", type=int, default=7777, help="Port for the main API")
     args = parser.parse_args()
-    
+
     api = ValidationAPI()
     api.start(args.main_api_port)
+
 
 if __name__ == "__main__":
     start()
