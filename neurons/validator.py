@@ -27,15 +27,15 @@ import torch
 from bittensor.core.metagraph import Metagraph
 from bittensor.core.subtensor import Subtensor
 from huggingface_hub import get_safetensors_metadata
-from common import wandb_logger
-from common.data import ModelId, ModelMetadata
-from common.scores import Scores, StatusEnum
 from rich.console import Console
 from rich.table import Table
 from scipy import optimize
 from threadpoolctl import threadpool_limits
 
 import constants
+from common import wandb_logger
+from common.data import ModelId, ModelMetadata
+from common.scores import Scores, StatusEnum
 from utilities import utils
 from utilities.compete import iswin
 from utilities.event_logger import EventLogger
