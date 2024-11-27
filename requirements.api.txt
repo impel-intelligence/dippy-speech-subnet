@@ -33,3 +33,4 @@ pre-commit
 python-dotenv
 soundfile
 joblib
+oss2
