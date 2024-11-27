@@ -1017,12 +1017,12 @@ def _get_model_score(
     # Status:
     # QUEUED, RUNNING, FAILED, COMPLETED
     # return (score, status)
-    if config.use_local_validation_api and retryWithRemote:
+    if config.use_local_validation_api and not retryWithRemote:
         validation_endpoint = f"http://localhost:{config.local_validation_api_port}/model_submission_details"
     else:
         validation_endpoint = f"{constants.VALIDATION_SERVER}/model_submission_details"
     
-    bt.logging.warning(f" MODEL SCORE ENDPOINT {validation_endpoint}--{config.use_local_validation_api} --- {retryWithRemote}")
+    bt.logging.warning(f" MODEL SCORE ENDPOINT:{validation_endpoint}, API LOCAL:{config.use_local_validation_api}, RETRY WITH REMOTE:{retryWithRemote}")
 
     # Construct the payload with the model name and chat template type
     payload = {
