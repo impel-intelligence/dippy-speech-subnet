@@ -239,7 +239,7 @@ class ValidationAPI:
         request = EvaluateModelRequest(
             repo_namespace=repo_namespace,
             repo_name=repo_name,
-            chat_template_type=chat_template_type,
+            config_template=chat_template_type,
             hash=hash,
             hotkey=hotkey,
         )
