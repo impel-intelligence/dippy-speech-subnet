@@ -1017,7 +1017,7 @@ def _get_model_score(
     # Status:
     # QUEUED, RUNNING, FAILED, COMPLETED
     # return (score, status)
-    if config.use_local_validation_api and not retryWithRemote:
+    if config.use_local_validation_api and retryWithRemote:
         validation_endpoint = f"http://localhost:{config.local_validation_api_port}/model_submission_details"
     else:
         validation_endpoint = f"{constants.VALIDATION_SERVER}/model_submission_details"
