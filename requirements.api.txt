@@ -31,3 +31,4 @@ isort
 autoflake
 pre-commit
 python-dotenv
+soundfile
