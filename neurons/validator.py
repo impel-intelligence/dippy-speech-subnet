@@ -1018,9 +1018,9 @@ def _get_model_score(
     # QUEUED, RUNNING, FAILED, COMPLETED
     # return (score, status)
     if config.use_local_validation_api and not retryWithRemote:
-        validation_endpoint = f"http://localhost:{config.local_validation_api_port}/evaluate_model"
+        validation_endpoint = f"http://localhost:{config.local_validation_api_port}/model_submission_details"
     else:
-        validation_endpoint = f"{constants.VALIDATION_SERVER}/evaluate_model"
+        validation_endpoint = f"{constants.VALIDATION_SERVER}/model_submission_details"
 
     # Construct the payload with the model name and chat template type
     payload = {
@@ -1043,45 +1043,30 @@ def _get_model_score(
 
     score_data = Scores()
 
-    ###### Mocking Reponse################
-    from unittest.mock import patch, MagicMock
+    try:
+        response = requests.post(validation_endpoint, json=payload, headers=headers)
+        response.raise_for_status()  # Raise an exception for HTTP errors
 
-    with patch("requests.post") as mock_post:
-        # Create a mock response object
-        mock_response = MagicMock()
-        mock_response.status_code = 200
-        mock_response.json.return_value = {
-            "status": "COMPLETED",
-            "score": {
-                "human_similarity_score": 0.9,
-            },
-        }
-        mock_post.return_value = mock_response
+        # Parse the response JSON
+        result = response.json()
+        if debug:
+            console = Console()
+            console.print(f"Payload: {payload}")
 
-        try:
-            response = requests.post(validation_endpoint, json=payload, headers=headers)
-            response.raise_for_status()  # Raise an exception for HTTP errors
-
-            # Parse the response JSON
-            result = response.json()
-            if debug:
-                console = Console()
-                console.print(f"Payload: {payload}")
-
-            if result is None or "status" not in result:
-                score_data.status = StatusEnum.FAILED
-                return score_data
-
-            status = StatusEnum.from_string(result["status"])
-            score_data.status = status
-
-            if "score" in result:
-                score_data.from_response(result["score"])
-
-        except Exception as e:
+        if result is None or "status" not in result:
             score_data.status = StatusEnum.FAILED
-            bt.logging.error(e)
-            bt.logging.error(f"Failed to get score and status for {namespace}/{name}")
+            return score_data
+
+        status = StatusEnum.from_string(result["status"])
+        score_data.status = status
+
+        if "score" in result:
+            score_data.from_response(result["score"])
+
+    except Exception as e:
+        score_data.status = StatusEnum.FAILED
+        bt.logging.error(e)
+        bt.logging.error(f"Failed to get score and status for {namespace}/{name}")
 
     bt.logging.debug(f"Model {namespace}/{name} has score data {score_data}")
     return score_data
