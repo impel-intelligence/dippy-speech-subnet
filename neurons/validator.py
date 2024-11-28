@@ -249,7 +249,7 @@ class Validator:
         # netuid = self.config.netuid or 11
         # === Bittensor objects ====
         self.wallet = bt.wallet(config=self.config)
-        
+
         self.subtensor = Subtensor(config=self.config)
 
         self.metagraph = self.subtensor.metagraph(netuid=self.config.netuid, lite=False)
@@ -581,6 +581,11 @@ class Validator:
                 if model_data.block > current_block:
                     invalid_uids.append(uid)
                     bt.logging.info(f"skip uid={uid} submitted on {model_data.block} after {current_block}")
+                    return
+                # Invalidates submissions from previous blocks to encourage miners to resubmit.
+                if model_data.block < NEW_EPOCH_BLOCK:
+                    invalid_uids.append(uid)
+                    bt.logging.warning(f"skip {uid} submitted on {model_data.block} which is before {NEW_EPOCH_BLOCK}")
                     return
 
                 # hotkey_hash_passes = self.model_id_matches_hotkey(model_data.miner_model_id, hotkey)
