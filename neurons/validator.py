@@ -245,17 +245,15 @@ class Validator:
 
         bt.logging.warning(f"Starting validator with config: {self.config}")
 
-        network_name = self.config.subtensor.network or "finney"
-        netuid = self.config.netuid or 11
+        # network_name = self.config.subtensor.network or "finney"
+        # netuid = self.config.netuid or 11
         # === Bittensor objects ====
         self.wallet = bt.wallet(config=self.config)
-
-        # self.subtensor = bt.subtensor(config=self.config)
+        
         self.subtensor = Subtensor(config=self.config)
 
-        # self.metagraph = Metagraph(netuid=netuid, network=network_name, lite=False, sync=True)
         self.metagraph = self.subtensor.metagraph(netuid=self.config.netuid, lite=False)
-        # self.metagraph.sync(subtensor=self.subtensor)
+        
 
         # Dont check registration status if offline.
         if not self.config.offline:
