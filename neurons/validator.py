@@ -1021,8 +1021,6 @@ def _get_model_score(
         validation_endpoint = f"http://localhost:{config.local_validation_api_port}/model_submission_details"
     else:
         validation_endpoint = f"{constants.VALIDATION_SERVER}/model_submission_details"
-    
-    bt.logging.warning(f" MODEL SCORE ENDPOINT:{validation_endpoint}, API LOCAL:{config.use_local_validation_api}, RETRY WITH REMOTE:{retryWithRemote}")
 
     # Construct the payload with the model name and chat template type
     payload = {
@@ -1069,7 +1067,6 @@ def _get_model_score(
         score_data.status = StatusEnum.FAILED
         bt.logging.error(e)
         bt.logging.error(f"Failed to get score and status for {namespace}/{name}")
-
 
     bt.logging.debug(f"Model {namespace}/{name} has score data {score_data}")
     return score_data
