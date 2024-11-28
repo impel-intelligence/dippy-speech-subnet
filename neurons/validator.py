@@ -1046,7 +1046,7 @@ def _get_model_score(
     score_data = Scores()
 
     try:
-        response = requests.post(validation_endpoint, json=payload, headers=headers)
+        response = requests.get(validation_endpoint, json=payload, headers=headers)
         response.raise_for_status()  # Raise an exception for HTTP errors
 
         # Parse the response JSON
