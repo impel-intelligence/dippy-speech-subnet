@@ -143,7 +143,7 @@ python neurons/miner.py \
 ## Running a Validator
 
 #### Requirements
-- Python 3.9+
+- Use Python 3.11.5
 - [UV python package manager](https://pypi.org/project/uv/)
 
 
