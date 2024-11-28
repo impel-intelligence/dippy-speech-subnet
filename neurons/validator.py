@@ -27,15 +27,15 @@ import torch
 from bittensor.core.metagraph import Metagraph
 from bittensor.core.subtensor import Subtensor
 from huggingface_hub import get_safetensors_metadata
-from common import wandb_logger
-from common.data import ModelId, ModelMetadata
-from common.scores import Scores, StatusEnum
 from rich.console import Console
 from rich.table import Table
 from scipy import optimize
 from threadpoolctl import threadpool_limits
 
 import constants
+from common import wandb_logger
+from common.data import ModelId, ModelMetadata
+from common.scores import Scores, StatusEnum
 from utilities import utils
 from utilities.compete import iswin
 from utilities.event_logger import EventLogger
@@ -1021,8 +1021,10 @@ def _get_model_score(
         validation_endpoint = f"http://localhost:{config.local_validation_api_port}/model_submission_details"
     else:
         validation_endpoint = f"{constants.VALIDATION_SERVER}/model_submission_details"
-    
-    bt.logging.warning(f" MODEL SCORE ENDPOINT:{validation_endpoint}, API LOCAL:{config.use_local_validation_api}, RETRY WITH REMOTE:{retryWithRemote}")
+
+    bt.logging.warning(
+        f" MODEL SCORE ENDPOINT:{validation_endpoint}, API LOCAL:{config.use_local_validation_api}, RETRY WITH REMOTE:{retryWithRemote}"
+    )
 
     # Construct the payload with the model name and chat template type
     payload = {
@@ -1069,7 +1071,6 @@ def _get_model_score(
         score_data.status = StatusEnum.FAILED
         bt.logging.error(e)
         bt.logging.error(f"Failed to get score and status for {namespace}/{name}")
-
 
     bt.logging.debug(f"Model {namespace}/{name} has score data {score_data}")
     return score_data
