@@ -28,4 +28,4 @@ RUN uv pip install -e .
 
 COPY voice_validation_api/validation_api.py .
 
-CMD ["python", "validation_api.py"]
+ENTRYPOINT ["python", "validation_api.py"]
