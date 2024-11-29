@@ -97,9 +97,10 @@ class ModelQueue:
         config = ModelQueue.config()
 
         self.config = config
-        self.netuid = self.config.netuid or 231
-        # network = self.config.subtensor.network or "test"
-        network = "test"
+        self.netuid = self.config.netuid or 58
+
+        network = self.config.subtensor.network or "finney"
+
         self.subtensor = Subtensor(network)
 
         self.metagraph = Metagraph(netuid=self.netuid, network=network, lite=True, sync=True)
