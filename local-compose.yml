@@ -21,12 +21,12 @@ services:
     build:
       context: .
       dockerfile: modelq.Dockerfile
-    network_mode: host
+    network_mode: "host"
     depends_on:
       postgres:
         condition: service_healthy
     environment:
-      POSTGRES_URL: postgresql://vapi:vapi@postgres:5432/vapi
+      POSTGRES_URL: postgresql://vapi:vapi@localhost:5432/vapi
       ADMIN_KEY: impel_intelligence_best_intelligence
     command: [ "--netuid", "231", "--subtensor.network", "test", "--immediate", "--local-validation-api-port", "7777", "--use-local-validation-api" ]
 
@@ -41,15 +41,27 @@ services:
     build:
       context: .
       dockerfile: worker.Dockerfile
+    network_mode: "host"
     depends_on:
       postgres:
         condition: service_healthy
       speech_image:
         condition: service_started # Ensures speechImage is built first
     environment:
-      POSTGRES_URL: postgresql://vapi:vapi@postgres:5432/vapi
-    ports:
-    - '8001:8000'
+      POSTGRES_URL: postgresql://vapi:vapi@localhost:5432/vapi
+    volumes:
+    - /var/run/docker.sock:/var/run/docker.sock
+
+  validation_api:
+    build:
+      context: .
+      dockerfile: vapi.Dockerfile
+    network_mode: "host"
+    depends_on:
+      postgres:
+        condition: service_healthy
+    environment:
+      POSTGRES_URL: postgresql://vapi:vapi@localhost:5432/vapi
 
 volumes:
   postgres_data: null
