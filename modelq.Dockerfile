@@ -25,6 +25,6 @@ RUN uv pip install -e .
 
 COPY neurons/model_queue.py .
 
-CMD ["python", "model_queue.py"]
+ENTRYPOINT ["python", "model_queue.py"]
 
 

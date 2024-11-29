@@ -7,57 +7,49 @@ services:
       PGUSER: vapi
       PGPASSWORD: vapi
       POSTGRES_PASSWORD: vapi
-      # POSTGRES_HOST_AUTH_METHOD: trust
     volumes:
-      - postgres_data:/var/lib/postgresql/data
+    - postgres_data:/var/lib/postgresql/data
     ports:
-      - "5432:5432"
+    - '5432:5432'
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U vapi -d vapi"]
+      test: [ "CMD-SHELL", "pg_isready -U vapi -d vapi" ]
       interval: 5s
       timeout: 5s
       retries: 5
 
-  # vapi:
-  #   build:
-  #     context: .
-  #     dockerfile: dippy_validation_api/vapi.Dockerfile
-  #     args:
-  #       - DEBUG=${DEBUG:-false}
-  #   # command: ["tail","-f","/dev/null"]
-  #   command: >
-  #     sh -c "if [ \"$$DEBUG\" = \"true\" ]; then 
-  #       python -m jurigged -v /app/dippy_validation_api/validation_api.py --queues 0 --main-api-port 7001;
-  #     else
-  #       python validation_api.py --queues 0 --main-api-port 7001;
-  #     fi"
-  #   environment:
-  #     DATABASE_URL: postgresql://vapi_user:vapi_password@postgres:5432/vapi_db
-  #     DEBUG: ${DEBUG:-false}
-  #     # Jurigged needs this to work in Docker
-  #     PYTHONUNBUFFERED: 1
-  #   volumes:
-  #     - ./dippy_validation_api:/app/dippy_validation_api
-  #     - ./scoring:/app/scoring
-  #     - ./utilities:/app/utilities
-  #     - ./template:/app/template
-  #     - ./model:/app/model
-  #     - ./constants:/app/constants
-  #   ports:
-  #     - "7001:7001"
-  #   env_file:
-  #     - .env
-  #   depends_on:
-  #     postgres:
-  #       condition: service_healthy
+  model_queue:
+    build:
+      context: .
+      dockerfile: modelq.Dockerfile
+    network_mode: host
+    depends_on:
+      postgres:
+        condition: service_healthy
+    environment:
+      POSTGRES_URL: postgresql://vapi:vapi@postgres:5432/vapi
+      ADMIN_KEY: impel_intelligence_best_intelligence
+    command: [ "--netuid", "231", "--subtensor.network", "test", "--immediate", "--local-validation-api-port", "7777", "--use-local-validation-api" ]
 
-  # model_q:
-  #   build:
-  #     context: .
-  #     dockerfile: modelq.Dockerfile
-  #   command: ["python","model_queue.py","--subtensor.network", "test"]
-  #   env_file:
-  #     - .env
+  speech_image:
+    build:
+      context: .
+      dockerfile: evaluator.Dockerfile
+    image: speech
+    entrypoint: [ "/bin/true" ]
+
+  worker_queue:
+    build:
+      context: .
+      dockerfile: worker.Dockerfile
+    depends_on:
+      postgres:
+        condition: service_healthy
+      speech_image:
+        condition: service_started # Ensures speechImage is built first
+    environment:
+      POSTGRES_URL: postgresql://vapi:vapi@postgres:5432/vapi
+    ports:
+    - '8001:8000'
 
 volumes:
-  postgres_data:
+  postgres_data: null
