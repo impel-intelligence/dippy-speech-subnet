@@ -56,13 +56,14 @@ compute_spec:
       architecture: "x86_64"  # Architecture type (e.g., x86_64, arm64)
 
     gpu:
-      required: True                       # Does the application require a GPU?
-      min_vram: 80                         # Minimum GPU VRAM (GB) only if you want run the model validation service locally. You may use the hosted service that we provide :) Check README.md.
+      # Note: these requirements are for running an independent worker instance. By default, validators will use a reference worker pool and will not need GPUs provisioned
+      required: False                       # Does the application require a GPU?
+      min_vram: 40                         # Minimum GPU VRAM (GB) only if you want run the model validation service locally. You may use the hosted service that we provide :) Check README.md.
       recommended_vram: 320                 # Recommended GPU VRAM (GB) if hosting model validation service locally. No GPU needed otherwise.
       cuda_cores: 6912                     # Minimum number of CUDA cores (if applicable)
       min_compute_capability: 6.0          # Minimum CUDA compute capability
       recommended_compute_capability: 7.0  # Recommended CUDA compute capability
-      recommended_gpu: "NVIDIA 8xA100"       # provide a recommended GPU to purchase/rent
+      recommended_gpu: "NVIDIA 4xA100"       # provide a recommended GPU to purchase/rent
 
     memory:
       min_ram: 64          # Minimum RAM (GB)
