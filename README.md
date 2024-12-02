@@ -268,10 +268,7 @@ POSTGRES_URL=xxxxxxxxxx
 
 ```bash
 python voice_validation_api/validation_api.py
-
 ```
-
-
 
 #### Running the validator with your own validation API service running locally
 ```bash
@@ -286,6 +283,76 @@ python neurons/model_queue.py --use-local-validation-api
 
 python voice_validation_api/worker_queue.py 
 ```
+
+## Local Development
+
+### Prepare a .env File
+Ensure you have a .env file in the root directory of your project. This file should include the necessary environment variables for the application to function correctly. Below is an example .env file:
+
+```bash
+# Admin credentials
+ADMIN_KEY=example_admin_key
+
+# Supabase credentials
+SUPABASE_KEY=example_supabase_key
+SUPABASE_URL=https://example.supabase.co
+
+# Hugging Face credentials
+HF_ACCESS_TOKEN=hf_example_access_token
+HF_USER=ExampleUser
+DIPPY_KEY=example_dippy_key
+
+# OpenAI API Key
+OPENAI_API_KEY=sk-example_openai_api_key
+
+# Dataset API Key
+DATASET_API_KEY=example_dataset_api_key
+
+POSTGRES_URL=postgresql://vapi:vapi@localhost:5432/vapi # For local dev db spun up by docker
+
+```
+### Spin up services 
+To quickly spin up the model_queue, worker_queue, and validation_api, use the local-compose script. 
+
+```bash
+docker compose -f local-compose.yml up -d --build
+```
+
+### Viewing Logs
+To monitor logs for a specific container, use the following command, replacing "Container name to see logs" with the desired container's name:
+
+
+```bash
+docker logs -f "<Container name to see logs>"
+```
+
+
+### Viewing and Interacting with the Local PostgreSQL Database
+#### 1. Setup SSH Tunnel
+```bash
+ssh -L 5432:localhost:5432 <remote_server_ip>
+```
+
+#### 2. Connect to the Database Using DBeaver
+If you prefer a graphical interface to inspect the database, such as entries in tables:
+
+- Open DBeaver (or any other database client of your choice).
+- Configure a new connection:
+    - Host: localhost
+    - Port: 5432
+    - Database name, username, and password as per the local configuration.
+- Access and query the database contents as needed.
+
+This is only required if you need a tool like DBeaver to examine database contents interactively.
+
+
+
+
+### Notes
+- The setup is configured to test netuid 231 and uses a local database provided by the Docker Compose file.
+
+- Ensure Docker Compose is installed and running on your system before executing the commands.
+
 ## Model Evaluation Criteria
 ### Human Likeness Score
 Models are evaluated on how closely their vocal outputs resemble natural human speech, considering factors such as emotional expression, intonation, pauses, and excitation levels. The more natural and convincingly human the voice sounds, the higher the score.
