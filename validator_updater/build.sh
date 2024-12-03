@@ -14,5 +14,6 @@ docker build -f Dockerfile.outer-dind -t "$IMAGE_NAME" .
 echo "Running the Docker container..."
 docker run -v "$HOST_WALLETS_DIR":"$CONTAINER_DIR" --privileged -d "$IMAGE_NAME"
 
+
 # Output success message
 echo "Container started successfully with image '$IMAGE_NAME'."
