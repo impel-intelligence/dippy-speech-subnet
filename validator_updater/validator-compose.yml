@@ -1,0 +1,24 @@
+version: "3.8"
+
+services:
+  validator_service:
+    image: ghcr.io/impel-intelligence/validator_script_image:latest
+    deploy:
+      labels:
+      - "shepherd.enable=true"
+    environment:
+      TZ: 'UTC'
+
+  shepherd:
+    image: containrrr/shepherd
+    environment:
+      TZ: 'UTC'
+      SLEEP_TIME: '5m'
+      FILTER_SERVICES: 'label=shepherd.enable==true'
+      VERBOSE: 'true'
+    volumes:
+    - /var/run/docker.sock:/var/run/docker.sock
+    deploy:
+      placement:
+        constraints:
+        - node.role == manager
