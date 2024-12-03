@@ -1,7 +1,26 @@
 FROM docker:dind
 
+# Create a working directory
+WORKDIR /build
+
 # Create a directory to bind the host wallet
 RUN mkdir -p /host_wallets
 
+# Copy the inner Dockerfile and required files for the inner image
+COPY validator_updater/Dockerfile.validator ./Dockerfile.validator
 
-CMD ["dockerd-entrypoint.sh"]
+COPY ../requirements.validator.txt requirements.validator.txt
+
+# COPY ../voice_validation_api ./voice_validation_api
+# COPY ../scoring ./scoring
+# COPY ../utilities ./utilities
+# COPY ../common/ ./common
+# COPY ../constants/ ./constants
+COPY ../neurons neurons
+
+
+
+
+
+# Entrypoint for the outer Docker container
+ENTRYPOINT ["sh", "-c", "dockerd-entrypoint.sh & sleep 5 && docker build -f Dockerfile.validator -t validator . && tail -f /dev/null"]

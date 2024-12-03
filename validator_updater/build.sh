@@ -5,7 +5,7 @@ set -euo pipefail
 
 # Define variables
 IMAGE_NAME="outer-dind"
-DOCKERFILE="Dockerfile.outer-dind"
+DOCKERFILE="validator_updater/Dockerfile.outer-dind"
 HOST_WALLETS_DIR="${HOME}/.bittensor/wallets"
 CONTAINER_DIR="/host_wallets"
 
