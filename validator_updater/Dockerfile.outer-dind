@@ -1,0 +1,7 @@
+FROM docker:dind
+
+# Create a directory to bind the host wallet
+RUN mkdir -p /host_wallets
+
+
+CMD ["dockerd-entrypoint.sh"]
