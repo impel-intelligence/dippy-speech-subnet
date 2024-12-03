@@ -823,9 +823,6 @@ class Validator:
             miner_registry[uid].invalid = True
             miner_registry[uid].total_score = 0
 
-        # Compute wins and win rates per uid.
-        miner_registry[2].total_score = 0.5
-        miner_registry[2].invalid = False
 
         wins, win_rate = compute_wins(miner_registry)
         sorted_uids = sorted(miner_registry.keys())
