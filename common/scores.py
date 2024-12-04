@@ -45,7 +45,7 @@ class Scores(BaseModel):
             self.total_score = 0
             return self
 
-        self.human_similarity_score = response.get("human_similarity_score", 0)
+        self.human_similarity_score = response.get("total_score", 0)
         return self
 
     def calculate_total_score(self, adjust_coherence: bool = False) -> float:
