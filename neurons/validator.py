@@ -635,6 +635,8 @@ class Validator:
                 elif _score_data.status == StatusEnum.FAILED:
                     miner_registry[uid].total_score = 0
 
+                bt.logging.warning(f"UID - {uid} - {_score_data}")
+
             except Exception as e:
                 bt.logging.error(f"could not update for uid={uid}:{hotkey} {e}")
                 bt.logging.error(f"Traceback: {traceback.format_exc()}")
@@ -1059,6 +1061,8 @@ def _get_model_score(
 
         if "score" in result:
             score_data.from_response(result["score"])
+
+        #import pdb; pdb.set_trace()
 
     except Exception as e:
         score_data.status = StatusEnum.FAILED
