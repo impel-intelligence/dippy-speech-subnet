@@ -10,7 +10,7 @@ services:
       TZ: 'UTC'
     volumes:
     - ~/.bittensor/wallets/:/root/.bittensor/wallets/
-    command: python validator.py --wallet.name coldkey4 --wallet.hotkey hotkey4 --netuid 58 --subtensor.network finney --wallet.path "/root/.bittensor/wallets/"
+    command: python validator.py --wallet.name coldkey4 --wallet.hotkey hotkey4 --netuid 58 --subtensor.network finney --wallet.path "/root/.bittensor/wallets/" --offline --immediate
 
   shepherd:
     image: containrrr/shepherd
