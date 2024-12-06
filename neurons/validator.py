@@ -19,6 +19,7 @@ from dataclasses import dataclass
 from importlib.metadata import version
 from shlex import split
 from typing import Dict, List, Optional, Tuple
+from tenacity import retry, stop_after_attempt, wait_exponential
 
 import bittensor as bt
 import numpy as np
@@ -705,12 +706,42 @@ class Validator:
 
         return hotkey_matches
 
+
+    @retry(
+        stop=stop_after_attempt(5),
+        wait=wait_exponential(multiplier=1, min=1, max=10),
+        reraise=True  # To raise the last exception if all retries fail
+    )
+    def get_metadata_with_retry(self, hotkey: str):
+        """
+        Retrieves metadata for a given hotkey with retry logic.
+
+        Args:
+            netuid (int): The network UID.
+            hotkey (str): The hotkey identifier.
+
+        Returns:
+            Optional[MinerEntry]: The fetched MinerEntry or None if failed.
+        """
+        try:
+            return bt.core.extrinsics.serving.get_metadata(
+                self=self.subtensor,
+                netuid=self.config.netuid,
+                hotkey=hotkey
+            )
+        except Exception as e:
+            bt.logging.error(f"Error fetching metadata for hotkey {hotkey}: {e}")
+            raise
+
+
     def fetch_model_data(self, uid: int, hotkey: str) -> Optional[MinerEntry]:
         try:
             bt.logging.warning(f"get_metadata for uid={uid} hotkey={hotkey} netuid={self.config.netuid}")
-            metadata = bt.core.extrinsics.serving.get_metadata(
-                self=self.subtensor, netuid=self.config.netuid, hotkey=hotkey
-            )
+            # metadata = bt.core.extrinsics.serving.get_metadata(
+            #     self=self.subtensor, netuid=self.config.netuid, hotkey=hotkey
+            # )
+            metadata = self.get_metadata_with_retry(hotkey=hotkey)
+
             if metadata is None:
                 return None
 
