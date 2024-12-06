@@ -19,7 +19,6 @@ from dataclasses import dataclass
 from importlib.metadata import version
 from shlex import split
 from typing import Dict, List, Optional, Tuple
-from tenacity import retry, stop_after_attempt, wait_exponential
 
 import bittensor as bt
 import numpy as np
@@ -707,32 +706,43 @@ class Validator:
         return hotkey_matches
 
 
-    @retry(
-        stop=stop_after_attempt(5),
-        wait=wait_exponential(multiplier=1, min=1, max=10),
-        reraise=True  # To raise the last exception if all retries fail
-    )
     def get_metadata_with_retry(self, hotkey: str):
         """
         Retrieves metadata for a given hotkey with retry logic.
 
         Args:
-            netuid (int): The network UID.
             hotkey (str): The hotkey identifier.
 
         Returns:
             Optional[MinerEntry]: The fetched MinerEntry or None if failed.
         """
-        try:
-            return bt.core.extrinsics.serving.get_metadata(
-                self=self.subtensor,
-                netuid=self.config.netuid,
-                hotkey=hotkey
-            )
-        except Exception as e:
-            bt.logging.error(f"Error fetching metadata for hotkey {hotkey}: {e}")
-            raise
+        max_retries = 3
+        backoff_multiplier = 2  # Base wait time in seconds
+        backoff_cap = 15        # Maximum wait time between retries
 
+        for attempt in range(1, max_retries + 1):
+            try:
+                bt.logging.warning(f"Attempt {attempt}: Trying to get model metadata for {hotkey}")
+                result = bt.core.extrinsics.serving.get_metadata(
+                    self=self.subtensor,
+                    netuid=self.config.netuid,
+                    hotkey=hotkey
+                )
+    
+                bt.logging.warning(f"Results: {result}")
+                return result  # Successful result, exit function
+            except Exception as e:
+                bt.logging.error(f"Error fetching metadata for hotkey {hotkey} (Attempt {attempt}): {e}")
+                if attempt == max_retries:  # If final attempt, re-raise the exception
+                    raise
+                # Wait before retrying (exponential backoff with cap)
+                backoff_time = min(backoff_multiplier * (2 ** (attempt - 1)), backoff_cap)
+                bt.logging.warning(f"Retrying in {backoff_time} seconds...")
+                time.sleep(backoff_time)
+
+        return None 
+
+        
 
     def fetch_model_data(self, uid: int, hotkey: str) -> Optional[MinerEntry]:
         try:
@@ -741,6 +751,8 @@ class Validator:
             #     self=self.subtensor, netuid=self.config.netuid, hotkey=hotkey
             # )
             metadata = self.get_metadata_with_retry(hotkey=hotkey)
+
+            bt.logging.debug(f"Pulled Metadata {metadata}")
 
             if metadata is None:
                 return None
