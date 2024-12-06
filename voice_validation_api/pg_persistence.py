@@ -204,6 +204,7 @@ class Persistence:
                         SELECT * FROM hash_entries WHERE hash = %s
                     """,
                         (hash,),
+                        prepare=False,
                     )
                     row = cur.fetchone()
 
@@ -233,6 +234,7 @@ class Persistence:
                         SELECT * FROM hash_entries WHERE hash = %s
                     """,
                         (hash,),
+                        prepare=False,
                     )
                     row = cur.fetchone()
 
