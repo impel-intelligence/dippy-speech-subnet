@@ -747,9 +747,7 @@ class Validator:
     def fetch_model_data(self, uid: int, hotkey: str) -> Optional[MinerEntry]:
         try:
             bt.logging.warning(f"get_metadata for uid={uid} hotkey={hotkey} netuid={self.config.netuid}")
-            # metadata = bt.core.extrinsics.serving.get_metadata(
-            #     self=self.subtensor, netuid=self.config.netuid, hotkey=hotkey
-            # )
+        
             metadata = self.get_metadata_with_retry(hotkey=hotkey)
 
             bt.logging.debug(f"Pulled Metadata {metadata}")
@@ -760,15 +758,7 @@ class Validator:
             commitment = metadata["info"]["fields"][0]
             hex_data = commitment[list(commitment.keys())[0]][2:]
             chain_str = bytes.fromhex(hex_data).decode()
-            # chain_str = ""
-            # try:
-            #     chain_str = self.subtensor.get_commitment(netuid=self.config.netuid, uid=uid)
-            #     bt.logging.warning(f"chain_str {chain_str}")
-            # except Exception as e:
-            #     bt.logging.error(f"error fetching commit data {e}")
-
-            # if chain_str is None or len(chain_str) < 1:
-            #     return None
+           
 
             model_id = ModelId.from_compressed_str(chain_str)
             model_id.hotkey = hotkey
