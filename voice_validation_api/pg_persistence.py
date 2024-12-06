@@ -415,6 +415,7 @@ class Persistence:
                         RETURNING *
                     """,
                         (hash_entry, uid, hotkey, block),
+                        prepare=False,
                     )
 
                     result = cur.fetchone()
