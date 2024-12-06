@@ -390,6 +390,7 @@ class Persistence:
                         WHERE hash = %s
                     """,
                         (hash_entry,),
+                        prepare=False, 
                     )
 
                     if not cur.fetchone():
@@ -415,7 +416,7 @@ class Persistence:
                         RETURNING *
                     """,
                         (hash_entry, uid, hotkey, block),
-                        prepare=False,
+                        prepare=False, 
                     )
 
                     result = cur.fetchone()
