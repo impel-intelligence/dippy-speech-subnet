@@ -705,27 +705,60 @@ class Validator:
 
         return hotkey_matches
 
+
+    def get_metadata_with_retry(self, hotkey: str):
+        """
+        Retrieves metadata for a given hotkey with retry logic.
+
+        Args:
+            hotkey (str): The hotkey identifier.
+
+        Returns:
+            Optional[MinerEntry]: The fetched MinerEntry or None if failed.
+        """
+        max_retries = 3
+        backoff_multiplier = 2  # Base wait time in seconds
+        backoff_cap = 15        # Maximum wait time between retries
+
+        for attempt in range(1, max_retries + 1):
+            try:
+                bt.logging.warning(f"Attempt {attempt}: Trying to get model metadata for {hotkey}")
+                result = bt.core.extrinsics.serving.get_metadata(
+                    self=self.subtensor,
+                    netuid=self.config.netuid,
+                    hotkey=hotkey
+                )
+    
+                bt.logging.warning(f"Results: {result}")
+                return result  # Successful result, exit function
+            except Exception as e:
+                bt.logging.error(f"Error fetching metadata for hotkey {hotkey} (Attempt {attempt}): {e}")
+                if attempt == max_retries:  # If final attempt, re-raise the exception
+                    raise
+                # Wait before retrying (exponential backoff with cap)
+                backoff_time = min(backoff_multiplier * (2 ** (attempt - 1)), backoff_cap)
+                bt.logging.warning(f"Retrying in {backoff_time} seconds...")
+                time.sleep(backoff_time)
+
+        return None 
+
+        
+
     def fetch_model_data(self, uid: int, hotkey: str) -> Optional[MinerEntry]:
         try:
             bt.logging.warning(f"get_metadata for uid={uid} hotkey={hotkey} netuid={self.config.netuid}")
-            metadata = bt.core.extrinsics.serving.get_metadata(
-                self=self.subtensor, netuid=self.config.netuid, hotkey=hotkey
-            )
+        
+            metadata = self.get_metadata_with_retry(hotkey=hotkey)
+
+            bt.logging.debug(f"Pulled Metadata {metadata}")
+
             if metadata is None:
                 return None
 
             commitment = metadata["info"]["fields"][0]
             hex_data = commitment[list(commitment.keys())[0]][2:]
             chain_str = bytes.fromhex(hex_data).decode()
-            # chain_str = ""
-            # try:
-            #     chain_str = self.subtensor.get_commitment(netuid=self.config.netuid, uid=uid)
-            #     bt.logging.warning(f"chain_str {chain_str}")
-            # except Exception as e:
-            #     bt.logging.error(f"error fetching commit data {e}")
-
-            # if chain_str is None or len(chain_str) < 1:
-            #     return None
+           
 
             model_id = ModelId.from_compressed_str(chain_str)
             model_id.hotkey = hotkey
