@@ -1,0 +1,22 @@
+FROM fluent/fluentd:v1.14-1
+
+# Switch to root user to install plugins
+USER root
+
+# Install the fluent-plugin-logtail gem
+RUN gem install fluent-plugin-logtail -v 0.2.0
+
+# (Optional) If you have other plugins or dependencies, install them here
+# RUN gem install other-plugin
+
+# Copy your Fluentd configuration file
+COPY ./fluentd/fluent.conf /fluentd/etc/fluent.conf
+
+# Ensure proper permissions
+RUN chown -R fluent:fluent /fluentd
+
+# Switch back to fluent user
+USER fluent
+
+# Set the entrypoint and default command
+CMD ["fluentd", "-c", "/fluentd/etc/fluent.conf", "-v"]
