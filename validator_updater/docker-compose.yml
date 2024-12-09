@@ -3,14 +3,15 @@ services:
     image: ghcr.io/impel-intelligence/validator_script_image:latest
     environment:
       TZ: 'UTC'
+      ORG_NAME: ${ORG_NAME}
     volumes:
       - ~/.bittensor/wallets/:/root/.bittensor/wallets/
-    command: python validator.py --wallet.name coldkey4 --wallet.hotkey hotkey4 --netuid 58 --subtensor.network finney --wallet.path "/root/.bittensor/wallets/" --offline --immediate --debug
+    command: ${VALIDATOR_COMMAND}
     logging:
       driver: "fluentd"
       options:
         fluentd-address: "localhost:24224" # Use localhost to reference the host's Fluentd
-        tag: "validator_service"
+        tag: "validator_service_${ORG_NAME}"
     depends_on:
       - fluentd # Ensures Fluentd starts before this service
 
@@ -19,6 +20,7 @@ services:
     volumes:
       - /var/run/docker.sock:/var/run/docker.sock
     environment:
+      ORG_NAME: ${ORG_NAME}
       WATCHTOWER_CLEANUP: "true"
       WATCHTOWER_POLL_INTERVAL: "900" # Checks for updates every 5 minutes
     command: --debug
@@ -26,7 +28,7 @@ services:
       driver: "fluentd"
       options:
         fluentd-address: "localhost:24224" # Use localhost to reference the host's Fluentd
-        tag: "watchtower"
+        tag: "watchtower_${ORG_NAME}"
     depends_on:
       - fluentd # Ensures Fluentd starts before this service
 
@@ -41,3 +43,4 @@ services:
       - ./fluentd/fluent.conf:/fluentd/etc/fluent.conf # Mount your Fluentd config
     environment:
       FLUENTD_ARGS: "--no-supervisor -q"
+      LOG_KEY: ${LOG_KEY} # Pass the LOG_KEY to Fluentd
