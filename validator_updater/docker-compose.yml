@@ -20,7 +20,7 @@ services:
       - /var/run/docker.sock:/var/run/docker.sock
     environment:
       WATCHTOWER_CLEANUP: "true"
-      WATCHTOWER_POLL_INTERVAL: "300" # Checks for updates every 5 minutes
+      WATCHTOWER_POLL_INTERVAL: "900" # Checks for updates every 5 minutes
     command: --debug
     logging:
       driver: "fluentd"
@@ -31,7 +31,9 @@ services:
       - fluentd # Ensures Fluentd starts before this service
 
   fluentd:
-    image: fluent/fluentd:v1.17.1-debian-1.1
+    build:
+      context: .
+      dockerfile: Dockerfile.fluent
     ports:
       - "24224:24224"
       - "24224:24224/udp"
