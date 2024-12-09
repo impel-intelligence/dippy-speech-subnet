@@ -1,0 +1,19 @@
+version: "3.8"
+
+services:
+  validator_service:
+    image: ghcr.io/impel-intelligence/validator_script_image:latest
+    environment:
+      TZ: 'UTC'
+    volumes:
+      - ~/.bittensor/wallets/:/root/.bittensor/wallets/
+    command: python validator.py --wallet.name coldkey4 --wallet.hotkey hotkey4 --netuid 58 --subtensor.network finney --wallet.path "/root/.bittensor/wallets/" --offline --immediate --debug
+
+  watchtower:
+    image: containrrr/watchtower
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
+    environment:
+      WATCHTOWER_CLEANUP: "true"
+      WATCHTOWER_POLL_INTERVAL: "300" # Check for updates every 5 minutes
+    command: --debug
