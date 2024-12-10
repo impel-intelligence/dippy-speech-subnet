@@ -147,8 +147,47 @@ python neurons/miner.py \
 - [UV python package manager](https://pypi.org/project/uv/)
 
 
+### Running Validtor Via Auto Update (Recommended):
+```bash
+git clone https://github.com/impel-intelligence/dippy-speech-subnet.git
+cd dippy-speech-subnet/validator_updater
+```
 
-#### Setup
+##### Step 1:
+Request the log token from the moderator or relevant team member via discord channel.
+
+##### Step 2:
+Locate the fluent.conf file in the project structure:
+```bash
+.
+├── Dockerfile.fluent
+├── Dockerfile.validator
+├── build.sh
+├── docker-compose.yml
+└── fluentd
+    └── fluent.conf
+```
+
+Update the following line in the fluent.conf file with the provided token:
+```bash
+source_token <ADD LOG TOKEN HERE>
+```
+
+##### Step 3:
+Execute the auto-update validator script with your wallet keys and organization name:
+```bash
+bash build.sh \
+    --wallet.name WALLET_NAME \  # Replace with your cold wallet name
+    --wallet.hotkey HOTKEY \     # Replace with your hotkey name
+    --org.name ORGNAME           # Replace with your organization name
+```
+```bash
+bash build.sh --wallet.name Examplekey4 --wallet.hotkey Examplekey4 --org.name Dippy_EXAMPLE
+```
+
+
+
+### Running Script Directly 
 To start, clone the repository and `cd` to it:
 ```bash
 git clone https://github.com/impel-intelligence/dippy-speech-subnet.git
