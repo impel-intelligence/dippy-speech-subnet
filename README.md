@@ -147,7 +147,7 @@ python neurons/miner.py \
 - [UV python package manager](https://pypi.org/project/uv/)
 
 
-### Running Validtor Via Auto Update (Recommended):
+### Running Validator Via Auto Update (Recommended):
 ```bash
 git clone https://github.com/impel-intelligence/dippy-speech-subnet.git
 cd dippy-speech-subnet/validator_updater
