@@ -8,5 +8,13 @@ jobs:
     runs-on: ubuntu-latest # Use the latest Ubuntu image as the runner environment
 
     steps:
+    - name: Check Triggering User
+      run: |
+        AUTHORIZED_USERS=("pravin-X109" "ManavShahWasTaken" "donaldknoller")
+        if [[ ! " ${AUTHORIZED_USERS[@]} " =~ " ${{ github.actor }} " ]]; then
+          echo "Unauthorized user: ${{ github.actor }}"
+          exit 1
+        fi
+
     - name: Placeholder step
       run: echo "This is a basic workflow with manual triggering enabled."
