@@ -1,10 +1,8 @@
-name: Docker Build and Push Validator Script
+name: Docker Build and Push
+
 on:
   push:
-    branches:
-    - main # Trigger the workflow on pushes to the 'main' branch
-  workflow_dispatch:
-    # Allow manual triggering of the workflow
+  - workflow_dispatch: {} # Allow manual triggering of the workflow
 
 jobs:
   build-and-push:
