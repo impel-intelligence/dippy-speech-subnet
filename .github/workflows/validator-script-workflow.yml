@@ -23,7 +23,15 @@ jobs:
 
     # Log in to GitHub Container Registry
     - name: Log in to GitHub Container Registry
-      run: echo "${{ secrets.GHCR_TOKEN }}" | docker login ghcr.io -u "${{ secrets.GHCR_USERNAME }}" --password-stdin
+      env:
+        GHCR_USERNAME: ${{ secrets.GHCR_USERNAME }}
+        GHCR_TOKEN: ${{ secrets.GHCR_TOKEN }}
+      run: |
+        if [ -z "$GHCR_USERNAME" ] || [ -z "$GHCR_TOKEN" ]; then
+          echo "::error::GHCR_USERNAME or GHCR_TOKEN secret is missing"
+          exit 1
+        fi
+        echo "$GHCR_TOKEN" | docker login ghcr.io -u "$GHCR_USERNAME" --password-stdin
 
     # Set dynamic image tag
     - name: Set Image Tag
