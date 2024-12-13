@@ -652,8 +652,6 @@ class Validator:
     async def try_sync_metagraph(self, ttl: int) -> bool:
         def sync_metagraph(_):
             try:
-                # Reinitialize subtensor to ensure the latest state.
-                self.subtensor = bt.subtensor(config=self.config)
                 self.metagraph = self.subtensor.metagraph(netuid=self.config.netuid, lite=False)
                 bt.logging.warning(f"Fetched Metagraph")
             except Exception as e:
