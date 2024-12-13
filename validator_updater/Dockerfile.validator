@@ -1,6 +1,9 @@
 # Use a lightweight Python base image
 FROM python:3.12-slim
 
+ARG BUILD_DATE
+LABEL build_date=$BUILD_DATE
+
 ENV UV_SYSTEM_PYTHON=1
 
 RUN apt-get update && \
