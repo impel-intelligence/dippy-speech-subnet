@@ -652,8 +652,10 @@ class Validator:
     async def try_sync_metagraph(self, ttl: int) -> bool:
         def sync_metagraph(_):
             try:
-                # self.metagraph.sync(lite=False)
+                # Reinitialize subtensor to ensure the latest state.
+                self.subtensor = bt.subtensor(config=self.config)
                 self.metagraph = self.subtensor.metagraph(netuid=self.config.netuid, lite=False)
+                bt.logging.warning(f"Fetched Metagraph")
             except Exception as e:
                 bt.logging.error(f"{e}")
                 # self.subtensor = Subtensor(config=self.config)
@@ -663,10 +665,12 @@ class Validator:
             process = multiprocessing.Process(target=sync_metagraph, args=(self.subtensor.chain_endpoint,))
             process.start()
             process.join(timeout=ttl)
+
             if process.is_alive():
                 process.terminate()
                 process.join()
                 bt.logging.error(f"Failed to sync metagraph after {ttl} seconds (attempt {attempt + 1}/3)")
+
                 if attempt == 2:
                     return False
             else:
@@ -685,7 +689,7 @@ class Validator:
             return success
 
         try:
-            bt.logging.warning(f"Running Validator Version - V0.1.1")
+            bt.logging.warning(f"Running Validator Version - V0.1.2")
             bt.logging.warning(f"Running step with ttl {ttl}")
             step_success = await asyncio.wait_for(_try_run_step(), ttl)
             bt.logging.warning("Finished running step.")
@@ -813,8 +817,8 @@ class Validator:
         # Avoid biasing lower value uids when making calls
         random.shuffle(all_uids)
         # Prepare evaluation
-        bt.logging.debug(
-            f"Computing metrics on {len(all_uids)} for competition {competition_parameters.competition_id}"
+        bt.logging.warning(
+            f"Computing metrics for {len(all_uids)} UIDS, for competition {competition_parameters.competition_id}"
         )
 
         invalid_uids, miner_registry = await self.build_registry(all_uids=all_uids, current_block=current_block)
