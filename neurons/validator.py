@@ -708,7 +708,6 @@ class Validator:
 
         return hotkey_matches
 
-
     def get_metadata_with_retry(self, hotkey: str):
         """
         Retrieves metadata for a given hotkey with retry logic.
@@ -721,17 +720,15 @@ class Validator:
         """
         max_retries = 3
         backoff_multiplier = 2  # Base wait time in seconds
-        backoff_cap = 15        # Maximum wait time between retries
+        backoff_cap = 15  # Maximum wait time between retries
 
         for attempt in range(1, max_retries + 1):
             try:
                 bt.logging.warning(f"Attempt {attempt}: Trying to get model metadata for {hotkey}")
                 result = bt.core.extrinsics.serving.get_metadata(
-                    self=self.subtensor,
-                    netuid=self.config.netuid,
-                    hotkey=hotkey
+                    self=self.subtensor, netuid=self.config.netuid, hotkey=hotkey
                 )
-    
+
                 bt.logging.warning(f"Results: {result}")
                 return result  # Successful result, exit function
             except Exception as e:
@@ -743,14 +740,12 @@ class Validator:
                 bt.logging.warning(f"Retrying in {backoff_time} seconds...")
                 time.sleep(backoff_time)
 
-        return None 
-
-        
+        return None
 
     def fetch_model_data(self, uid: int, hotkey: str) -> Optional[MinerEntry]:
         try:
             bt.logging.warning(f"get_metadata for uid={uid} hotkey={hotkey} netuid={self.config.netuid}")
-        
+
             metadata = self.get_metadata_with_retry(hotkey=hotkey)
 
             bt.logging.debug(f"Pulled Metadata {metadata}")
@@ -761,7 +756,6 @@ class Validator:
             commitment = metadata["info"]["fields"][0]
             hex_data = commitment[list(commitment.keys())[0]][2:]
             chain_str = bytes.fromhex(hex_data).decode()
-           
 
             model_id = ModelId.from_compressed_str(chain_str)
             model_id.hotkey = hotkey
@@ -858,7 +852,6 @@ class Validator:
                 miner_registry[uid] = MinerEntry()
             miner_registry[uid].invalid = True
             miner_registry[uid].total_score = 0
-
 
         wins, win_rate = compute_wins(miner_registry)
         sorted_uids = sorted(miner_registry.keys())
@@ -961,44 +954,28 @@ class Validator:
         self._event_log("log_scores", scores=scores_per_uid, step=self.epoch_step)
 
     async def run(self):
-        while True:
-            try:
-                current_time = dt.datetime.now(dt.timezone.utc)
-                minutes = current_time.minute
+        try:
+            current_time = dt.datetime.now(dt.timezone.utc)
+            bt.logging.success(f"Running step at {current_time.strftime('%H:%M')}")
 
-                # Check if we're at a 20-minute mark
-                if minutes % 20 == 0 or self.config.immediate:
-                    bt.logging.success(f"Running step at {current_time.strftime('%H:%M')}")
-                    success = await self.try_run_step(ttl=60 * 20)
-                    weights_set_success = False
-                    self.global_step += 1
-                    if success:
-                        weights_set_success, error_msg = await self.try_set_weights(ttl=120)
-                        bt.logging.warning(f"weights_set_success {weights_set_success} error_msg {error_msg}")
-                    metagraph_synced = await self.try_sync_metagraph(ttl=120)
-                    bt.logging.warning(f"metagraph_synced {metagraph_synced}")
-                    if self.config.immediate:
-                        await asyncio.sleep(100)
-                    # Wait for 1 minute to avoid running multiple times within the same minute
-                    await asyncio.sleep(60)
-                else:
-                    # Calculate minutes until next 20-minute mark
-                    minutes_until_next = 20 - (minutes % 20)
-                    next_run = current_time + dt.timedelta(minutes=minutes_until_next)
-                    bt.logging.success(
-                        f"Waiting {minutes_until_next} minutes until next run at {next_run.strftime('%H:%M')}"
-                    )
+            success = await self.try_run_step(ttl=60 * 20)
+            weights_set_success = False
+            self.global_step += 1
 
-                    # Wait until the next minute before checking again
-                    await asyncio.sleep(60)
+            if success:
+                weights_set_success, error_msg = await self.try_set_weights(ttl=120)
+                bt.logging.warning(f"weights_set_success {weights_set_success} error_msg {error_msg}")
 
-            except KeyboardInterrupt:
-                bt.logging.warning("KeyboardInterrupt caught")
-                exit()
-            except Exception as e:
-                bt.logging.error(f"Error in validator loop \n {e} \n {traceback.format_exc()}")
-                # Add a small delay before retrying in case of continuous errors
-                await asyncio.sleep(5)
+            metagraph_synced = await self.try_sync_metagraph(ttl=120)
+            bt.logging.warning(f"metagraph_synced {metagraph_synced}")
+
+        except KeyboardInterrupt:
+            bt.logging.warning("KeyboardInterrupt caught")
+            exit()
+        except Exception as e:
+            bt.logging.error(f"Error in validator loop \n {e} \n {traceback.format_exc()}")
+            # Add a small delay before retrying in case of continuous errors
+            await asyncio.sleep(5)
 
 
 def telemetry_report(local_metadata: LocalMetadata, payload=None):
