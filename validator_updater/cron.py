@@ -1,5 +1,6 @@
 import os
 import logging
+import subprocess
 from apscheduler.schedulers.blocking import BlockingScheduler
 
 # Ensure log directory exists
@@ -18,12 +19,23 @@ logging.basicConfig(
 
 def log_and_print_hello():
     """
-    Function to log and print "Hello World".
+    Function to log and print "Hello World" via a subprocess.
     """
-    logging.info("Executing job: log_and_print_hello")  # Execution confirmation
-    message = "Hello World"
-    logging.info(message)  # Logs the message
-    print(message, flush=True)  # Print and flush immediately to avoid buffering
+    logging.info("Executing job: log_and_print_hello in subprocess")  # Execution confirmation
+
+    # Command to print Hello World
+    command = ["python", "-c", "print('Hello World')"]
+
+    try:
+        # Run the command in a subprocess and capture output
+        result = subprocess.run(command, text=True, capture_output=True, check=True)
+        
+        # Log subprocess output
+        logging.info(f"Subprocess Output: {result.stdout.strip()}")
+        print(result.stdout.strip(), flush=True)  # Print and flush subprocess output
+    except subprocess.CalledProcessError as e:
+        logging.error(f"Subprocess failed: {e.stderr}")
+        print(f"Error: {e.stderr}", flush=True)
 
 def main():
     # Create an instance of scheduler
