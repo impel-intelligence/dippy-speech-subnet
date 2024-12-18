@@ -33,7 +33,6 @@ from scipy import optimize
 from threadpoolctl import threadpool_limits
 
 import constants
-from common import wandb_logger
 from common.data import ModelId, ModelMetadata
 from common.scores import Scores, StatusEnum
 from utilities import utils
@@ -143,12 +142,6 @@ class Validator:
     def config():
         parser = argparse.ArgumentParser()
         parser.add_argument(
-            "--device",
-            type=str,
-            default="cuda",
-            help="Device name.",
-        )
-        parser.add_argument(
             "--blocks_per_epoch",
             type=int,
             default=100,
@@ -181,12 +174,6 @@ class Validator:
             help="Don't sync to consensus, rather start evaluation from scratch",
         )
         parser.add_argument(
-            "--dtype",
-            type=str,
-            default="bfloat16",
-            help="datatype to load model in, either bfloat16 or float16",
-        )
-        parser.add_argument(
             "--do_sample",
             action="store_true",
             help="Sample a response from each model (for leaderboard)",
@@ -207,12 +194,6 @@ class Validator:
             type=int,
             default=8000,
             help="Port for local validation api",
-        )
-        parser.add_argument(
-            "--wandb-key",
-            type=str,
-            default="",
-            help="A WandB API key for logging purposes",
         )
 
         bt.subtensor.add_args(parser)
@@ -292,24 +273,6 @@ class Validator:
         )
         bt.logging.warning(f"dumping localmetadata: {self.local_metadata}")
 
-        # Initialize wandb
-        if self.config.wandb_key:
-            wandb_logger.safe_login(api_key=self.config.wandb_key)
-            bt.logging.warning(f"wandb locked in")
-        try:
-            wandb_logger.safe_init(
-                "Validator",
-                self.wallet,
-                self.metagraph,
-                self.config,
-            )
-            wandb_logger.safe_log(
-                {
-                    "log_success": 1,
-                }
-            )
-        except Exception as e:
-            bt.logging.warning("continuing without wandb. this is fine")
 
         # eventlog_path = "/tmp/sn11_event_logs/event_{time}.log"
         eventlog_path = "/dev/null"
@@ -429,17 +392,14 @@ class Validator:
             try:
                 # Fetch latest metagraph
                 metagraph = self.subtensor.metagraph(self.config.netuid)
-                consensus = metagraph.C
-                cpu_weights = self.weights
                 # Save types for reporting
                 type_report = {
                     "metagraph": str(type(metagraph)),  # bittensor.core.metagraph.NonTorchMetagraph
-                    "consensus": str(type(consensus)),  # numpy.ndarray
-                    "cpu_weights": str(type(cpu_weights)),  # torch.Tensor
                 }
                 bt.logging.debug(f"data_dump: {type_report}")
                 try:
-                    adjusted_weights = self.adjust_for_vtrust(cpu_weights, consensus)
+                    adjusted_weights = self.weights
+
                     self.weights = torch.from_numpy(adjusted_weights).clone().detach()
                 except Exception as e:
                     bt.logging.error(f"error adjusting for vtrust: {e}")
@@ -506,7 +466,6 @@ class Validator:
                 weights_report = {"weights": {}}
                 for uid, score in enumerate(self.weights):
                     weights_report["weights"][uid] = score
-                wandb_logger.safe_log(weights_report)
                 self._event_log("set_weights_complete", weights=weights_report)
                 bt.logging.warning(f"successfully_set_weights")
                 weights_success = True
@@ -950,7 +909,6 @@ class Validator:
         scores_per_uid = {}
         for uid in sorted_uids:
             scores_per_uid[uid] = miner_registry[uid].total_score
-        wandb_logger.safe_log({"miner_scores/scored_per_uid": scores_per_uid})
         self._event_log("log_scores", scores=scores_per_uid, step=self.epoch_step)
 
     async def run(self):
