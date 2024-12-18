@@ -59,7 +59,12 @@ def main():
     scheduler = BlockingScheduler()
 
     # Add job to scheduler: run `log_and_run_validator` every 15 minutes
-    scheduler.add_job(log_and_run_validator, 'interval', minutes=15, id='validator_job')
+    # scheduler.add_job(log_and_run_validator, 'interval', minutes=15, id='validator_job')
+
+    # scheduler.add_job(log_and_run_validator, 'cron', minute=0, id='validator_job')
+    
+    scheduler.add_job(log_and_run_validator, 'cron',  minute='0, 30', id='validator_job')
+
 
     try:
         logging.info("Scheduler started.")
