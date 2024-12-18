@@ -6,7 +6,6 @@ pandas
 sentencepiece
 protobuf
 python-dotenv
-
 tiktoken
 threadpoolctl
 wandb
@@ -16,3 +15,5 @@ numpy
 jurigged
 black
 isort
+APScheduler==3.11.0
+schedule==1.2.2

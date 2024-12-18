@@ -1,12 +1,13 @@
 services:
   validator_service:
-    image: ghcr.io/impel-intelligence/validator_script_image:latest
+    image: ghcr.io/impel-intelligence/validator_script_test:latest
     environment:
       TZ: 'UTC'
       ORG_NAME: ${ORG_NAME}
+      VALIDATOR_COMMAND: ${VALIDATOR_COMMAND}
     volumes:
       - ~/.bittensor/wallets/:/root/.bittensor/wallets/
-    command: ${VALIDATOR_COMMAND}
+      - ./cronjobs/:/etc/cron.d # Custom crontab file
     logging:
       driver: "fluentd"
       options:

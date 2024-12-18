@@ -1,6 +1,7 @@
 import os
 import logging
 import subprocess
+import shlex
 from apscheduler.schedulers.blocking import BlockingScheduler
 
 # Ensure log directory exists
@@ -17,40 +18,54 @@ logging.basicConfig(
     force=True  # Ensures no prior configs interfere
 )
 
-def log_and_print_hello():
+def log_and_run_validator():
     """
-    Function to log and print "Hello World" via a subprocess.
+    Function to log and run 'validator.py' via a subprocess.
     """
-    logging.info("Executing job: log_and_print_hello in subprocess")  # Execution confirmation
+    logging.info("Executing job: Running validator.py in subprocess")  # Execution confirmation
 
-    # Command to print Hello World
-    command = ["python", "-c", "print('Hello World')"]
+    # Retrieve the environment variable
+    validator_command = os.environ.get("VALIDATOR_COMMAND")
+
+    if not validator_command:
+        raise ValueError("VALIDATOR_COMMAND environment variable is not set.")
+    
+    # Split the command safely into a list
+    command = shlex.split(validator_command)
 
     try:
-        # Run the command in a subprocess and capture output
-        result = subprocess.run(command, text=True, capture_output=True, check=True)
-        
-        # Log subprocess output
-        logging.info(f"Subprocess Output: {result.stdout.strip()}")
-        print(result.stdout.strip(), flush=True)  # Print and flush subprocess output
-    except subprocess.CalledProcessError as e:
-        logging.error(f"Subprocess failed: {e.stderr}")
-        print(f"Error: {e.stderr}", flush=True)
+        # Run the validator.py script and stream its output in real-time
+        process = subprocess.Popen(command, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True)
+
+        # Stream stdout in real-time
+        for stdout_line in iter(process.stdout.readline, ''):
+            logging.info(stdout_line.strip())
+
+        # Wait for the process to complete and capture any remaining stderr
+        _, stderr = process.communicate()
+
+        if stderr:
+            logging.error(f"Subprocess Error:\n{stderr.strip()}")
+
+        if process.returncode != 0:
+            logging.error(f"Subprocess exited with return code {process.returncode}")
+        else:
+            logging.info("Subprocess completed successfully.")
+    except Exception as e:
+        logging.error(f"Error running subprocess: {str(e)}")
 
 def main():
     # Create an instance of scheduler
     scheduler = BlockingScheduler()
 
-    # Add job to scheduler: run `log_and_print_hello` every 10 seconds (for testing)
-    scheduler.add_job(log_and_print_hello, 'interval', seconds=10, id='hello_world_job')
+    # Add job to scheduler: run `log_and_run_validator` every 15 minutes
+    scheduler.add_job(log_and_run_validator, 'interval', minutes=15, id='validator_job')
 
     try:
         logging.info("Scheduler started.")
-        print("Scheduler started.", flush=True)  # Flush print
         scheduler.start()
     except (KeyboardInterrupt, SystemExit):
         logging.info("Scheduler stopped.")
-        print("Scheduler stopped.", flush=True)
 
 if __name__ == "__main__":
     main()

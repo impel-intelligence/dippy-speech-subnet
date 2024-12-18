@@ -95,7 +95,7 @@ fi
 command_args+=" --debug"
 
 # Export environment variables for Docker Compose
-export VALIDATOR_COMMAND="python validator.py$command_args"
+export VALIDATOR_COMMAND="python validator.py $command_args"
 export ORG_NAME="$org_name"
 
 # Run Docker Compose with overrides
