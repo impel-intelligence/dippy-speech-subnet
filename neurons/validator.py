@@ -392,14 +392,15 @@ class Validator:
                     "metagraph": str(type(metagraph)),  # bittensor.core.metagraph.NonTorchMetagraph
                 }
                 bt.logging.debug(f"data_dump: {type_report}")
+                cpu_weights = self.weights
                 try:
                     adjusted_weights = self.weights
                     self.weights = torch.from_numpy(adjusted_weights).clone().detach()
-                    cpu_weights = self.weights
                 except Exception as e:
                     bt.logging.error(f"error adjusting for vtrust: {e}")
                     adjusted_weights = torch.tensor(cpu_weights)
                     self.weights = adjusted_weights.clone().detach()
+                cpu_weights = self.weights
 
                 if debug:
                     # Compare weights before and after vtrust adjustment
