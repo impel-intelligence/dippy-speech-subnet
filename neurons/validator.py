@@ -380,11 +380,6 @@ class Validator:
             return False, None
 
         wait_for_inclusion = False
-        try:
-            if self.config.wait_for_inclusion:
-                wait_for_inclusion = True
-        except Exception as e:
-            bt.logging.warning(f"wait_for_inclusion not set: {wait_for_inclusion}")
 
         async def _try_set_weights(wait_for_inclusion: bool = False, debug: bool = False) -> Tuple[bool, Optional[str]]:
             weights_success = False
@@ -399,8 +394,8 @@ class Validator:
                 bt.logging.debug(f"data_dump: {type_report}")
                 try:
                     adjusted_weights = self.weights
-
                     self.weights = torch.from_numpy(adjusted_weights).clone().detach()
+                    cpu_weights = self.weights
                 except Exception as e:
                     bt.logging.error(f"error adjusting for vtrust: {e}")
                     adjusted_weights = torch.tensor(cpu_weights)
