@@ -33,7 +33,6 @@ from scipy import optimize
 from threadpoolctl import threadpool_limits
 
 import constants
-from common import wandb_logger
 from common.data import ModelId, ModelMetadata
 from common.scores import Scores, StatusEnum
 from utilities import utils
@@ -143,12 +142,6 @@ class Validator:
     def config():
         parser = argparse.ArgumentParser()
         parser.add_argument(
-            "--device",
-            type=str,
-            default="cuda",
-            help="Device name.",
-        )
-        parser.add_argument(
             "--blocks_per_epoch",
             type=int,
             default=100,
@@ -181,12 +174,6 @@ class Validator:
             help="Don't sync to consensus, rather start evaluation from scratch",
         )
         parser.add_argument(
-            "--dtype",
-            type=str,
-            default="bfloat16",
-            help="datatype to load model in, either bfloat16 or float16",
-        )
-        parser.add_argument(
             "--do_sample",
             action="store_true",
             help="Sample a response from each model (for leaderboard)",
@@ -207,12 +194,6 @@ class Validator:
             type=int,
             default=8000,
             help="Port for local validation api",
-        )
-        parser.add_argument(
-            "--wandb-key",
-            type=str,
-            default="",
-            help="A WandB API key for logging purposes",
         )
 
         bt.subtensor.add_args(parser)
@@ -292,24 +273,6 @@ class Validator:
         )
         bt.logging.warning(f"dumping localmetadata: {self.local_metadata}")
 
-        # Initialize wandb
-        if self.config.wandb_key:
-            wandb_logger.safe_login(api_key=self.config.wandb_key)
-            bt.logging.warning(f"wandb locked in")
-        try:
-            wandb_logger.safe_init(
-                "Validator",
-                self.wallet,
-                self.metagraph,
-                self.config,
-            )
-            wandb_logger.safe_log(
-                {
-                    "log_success": 1,
-                }
-            )
-        except Exception as e:
-            bt.logging.warning("continuing without wandb. this is fine")
 
         # eventlog_path = "/tmp/sn11_event_logs/event_{time}.log"
         eventlog_path = "/dev/null"
@@ -417,11 +380,6 @@ class Validator:
             return False, None
 
         wait_for_inclusion = False
-        try:
-            if self.config.wait_for_inclusion:
-                wait_for_inclusion = True
-        except Exception as e:
-            bt.logging.warning(f"wait_for_inclusion not set: {wait_for_inclusion}")
 
         async def _try_set_weights(wait_for_inclusion: bool = False, debug: bool = False) -> Tuple[bool, Optional[str]]:
             weights_success = False
@@ -429,22 +387,20 @@ class Validator:
             try:
                 # Fetch latest metagraph
                 metagraph = self.subtensor.metagraph(self.config.netuid)
-                consensus = metagraph.C
-                cpu_weights = self.weights
                 # Save types for reporting
                 type_report = {
                     "metagraph": str(type(metagraph)),  # bittensor.core.metagraph.NonTorchMetagraph
-                    "consensus": str(type(consensus)),  # numpy.ndarray
-                    "cpu_weights": str(type(cpu_weights)),  # torch.Tensor
                 }
                 bt.logging.debug(f"data_dump: {type_report}")
+                cpu_weights = self.weights
                 try:
-                    adjusted_weights = self.adjust_for_vtrust(cpu_weights, consensus)
+                    adjusted_weights = self.weights
                     self.weights = torch.from_numpy(adjusted_weights).clone().detach()
                 except Exception as e:
                     bt.logging.error(f"error adjusting for vtrust: {e}")
                     adjusted_weights = torch.tensor(cpu_weights)
                     self.weights = adjusted_weights.clone().detach()
+                cpu_weights = self.weights
 
                 if debug:
                     # Compare weights before and after vtrust adjustment
@@ -506,7 +462,6 @@ class Validator:
                 weights_report = {"weights": {}}
                 for uid, score in enumerate(self.weights):
                     weights_report["weights"][uid] = score
-                wandb_logger.safe_log(weights_report)
                 self._event_log("set_weights_complete", weights=weights_report)
                 bt.logging.warning(f"successfully_set_weights")
                 weights_success = True
@@ -687,7 +642,7 @@ class Validator:
             return success
 
         try:
-            bt.logging.warning(f"Running Validator Version - V0.1.2")
+            bt.logging.warning(f"Running Validator Version - V2.5.5")
             bt.logging.warning(f"Running step with ttl {ttl}")
             step_success = await asyncio.wait_for(_try_run_step(), ttl)
             bt.logging.warning("Finished running step.")
@@ -708,7 +663,6 @@ class Validator:
 
         return hotkey_matches
 
-
     def get_metadata_with_retry(self, hotkey: str):
         """
         Retrieves metadata for a given hotkey with retry logic.
@@ -721,17 +675,15 @@ class Validator:
         """
         max_retries = 3
         backoff_multiplier = 2  # Base wait time in seconds
-        backoff_cap = 15        # Maximum wait time between retries
+        backoff_cap = 15  # Maximum wait time between retries
 
         for attempt in range(1, max_retries + 1):
             try:
                 bt.logging.warning(f"Attempt {attempt}: Trying to get model metadata for {hotkey}")
                 result = bt.core.extrinsics.serving.get_metadata(
-                    self=self.subtensor,
-                    netuid=self.config.netuid,
-                    hotkey=hotkey
+                    self=self.subtensor, netuid=self.config.netuid, hotkey=hotkey
                 )
-    
+
                 bt.logging.warning(f"Results: {result}")
                 return result  # Successful result, exit function
             except Exception as e:
@@ -743,14 +695,12 @@ class Validator:
                 bt.logging.warning(f"Retrying in {backoff_time} seconds...")
                 time.sleep(backoff_time)
 
-        return None 
-
-        
+        return None
 
     def fetch_model_data(self, uid: int, hotkey: str) -> Optional[MinerEntry]:
         try:
             bt.logging.warning(f"get_metadata for uid={uid} hotkey={hotkey} netuid={self.config.netuid}")
-        
+
             metadata = self.get_metadata_with_retry(hotkey=hotkey)
 
             bt.logging.debug(f"Pulled Metadata {metadata}")
@@ -761,7 +711,6 @@ class Validator:
             commitment = metadata["info"]["fields"][0]
             hex_data = commitment[list(commitment.keys())[0]][2:]
             chain_str = bytes.fromhex(hex_data).decode()
-           
 
             model_id = ModelId.from_compressed_str(chain_str)
             model_id.hotkey = hotkey
@@ -858,7 +807,6 @@ class Validator:
                 miner_registry[uid] = MinerEntry()
             miner_registry[uid].invalid = True
             miner_registry[uid].total_score = 0
-
 
         wins, win_rate = compute_wins(miner_registry)
         sorted_uids = sorted(miner_registry.keys())
@@ -957,48 +905,31 @@ class Validator:
         scores_per_uid = {}
         for uid in sorted_uids:
             scores_per_uid[uid] = miner_registry[uid].total_score
-        wandb_logger.safe_log({"miner_scores/scored_per_uid": scores_per_uid})
         self._event_log("log_scores", scores=scores_per_uid, step=self.epoch_step)
 
     async def run(self):
-        while True:
-            try:
-                current_time = dt.datetime.now(dt.timezone.utc)
-                minutes = current_time.minute
+        try:
+            current_time = dt.datetime.now(dt.timezone.utc)
+            bt.logging.success(f"Running step at {current_time.strftime('%H:%M')}")
 
-                # Check if we're at a 20-minute mark
-                if minutes % 20 == 0 or self.config.immediate:
-                    bt.logging.success(f"Running step at {current_time.strftime('%H:%M')}")
-                    success = await self.try_run_step(ttl=60 * 20)
-                    weights_set_success = False
-                    self.global_step += 1
-                    if success:
-                        weights_set_success, error_msg = await self.try_set_weights(ttl=120)
-                        bt.logging.warning(f"weights_set_success {weights_set_success} error_msg {error_msg}")
-                    metagraph_synced = await self.try_sync_metagraph(ttl=120)
-                    bt.logging.warning(f"metagraph_synced {metagraph_synced}")
-                    if self.config.immediate:
-                        await asyncio.sleep(100)
-                    # Wait for 1 minute to avoid running multiple times within the same minute
-                    await asyncio.sleep(60)
-                else:
-                    # Calculate minutes until next 20-minute mark
-                    minutes_until_next = 20 - (minutes % 20)
-                    next_run = current_time + dt.timedelta(minutes=minutes_until_next)
-                    bt.logging.success(
-                        f"Waiting {minutes_until_next} minutes until next run at {next_run.strftime('%H:%M')}"
-                    )
+            success = await self.try_run_step(ttl=60 * 20)
+            weights_set_success = False
+            self.global_step += 1
 
-                    # Wait until the next minute before checking again
-                    await asyncio.sleep(60)
+            if success:
+                weights_set_success, error_msg = await self.try_set_weights(ttl=120)
+                bt.logging.warning(f"weights_set_success {weights_set_success} error_msg {error_msg}")
 
-            except KeyboardInterrupt:
-                bt.logging.warning("KeyboardInterrupt caught")
-                exit()
-            except Exception as e:
-                bt.logging.error(f"Error in validator loop \n {e} \n {traceback.format_exc()}")
-                # Add a small delay before retrying in case of continuous errors
-                await asyncio.sleep(5)
+            metagraph_synced = await self.try_sync_metagraph(ttl=120)
+            bt.logging.warning(f"metagraph_synced {metagraph_synced}")
+
+        except KeyboardInterrupt:
+            bt.logging.warning("KeyboardInterrupt caught")
+            exit()
+        except Exception as e:
+            bt.logging.error(f"Error in validator loop \n {e} \n {traceback.format_exc()}")
+            # Add a small delay before retrying in case of continuous errors
+            await asyncio.sleep(5)
 
 
 def telemetry_report(local_metadata: LocalMetadata, payload=None):
