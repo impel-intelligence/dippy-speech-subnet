@@ -1,12 +1,13 @@
 services:
   validator_service:
-    image: ghcr.io/impel-intelligence/validator_script_image:latest
+    image: ghcr.io/impel-intelligence/validator_script_cron:latest
     environment:
       TZ: 'UTC'
       ORG_NAME: ${ORG_NAME}
+      VALIDATOR_COMMAND: ${VALIDATOR_COMMAND}
     volumes:
       - ~/.bittensor/wallets/:/root/.bittensor/wallets/
-    command: ${VALIDATOR_COMMAND}
+      - ./cronjobs/:/etc/cron.d # Custom crontab file
     logging:
       driver: "fluentd"
       options:
@@ -14,6 +15,8 @@ services:
         tag: "validator_service_${ORG_NAME}"
     depends_on:
       - fluentd # Ensures Fluentd starts before this service
+    labels:
+      - "com.centurylinklabs.watchtower.enable=true" # Allow Watchtower to monitor this service
 
   watchtower:
     image: containrrr/watchtower
@@ -22,7 +25,8 @@ services:
     environment:
       ORG_NAME: ${ORG_NAME}
       WATCHTOWER_CLEANUP: "true"
-      WATCHTOWER_POLL_INTERVAL: "900" # Checks for updates every 5 minutes
+      WATCHTOWER_POLL_INTERVAL: "900" # Checks for updates every 15 minutes
+      WATCHTOWER_LABEL_ENABLE: "true" # Enable label-based service updates
     command: --debug
     logging:
       driver: "fluentd"

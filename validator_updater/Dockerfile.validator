@@ -1,3 +1,4 @@
+# Use Ubuntu as the base image
 # Use a lightweight Python base image
 FROM python:3.12-slim
 
@@ -31,6 +32,6 @@ COPY .git .git
 RUN uv pip install -e .
 
 COPY neurons/validator.py /app/
+COPY validator_updater/cron.py /app/
 
-ENTRYPOINT ["python", "validator.py"]
-
+ENTRYPOINT ["python", "cron.py"]
