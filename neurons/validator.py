@@ -678,9 +678,9 @@ class Validator:
         Returns:
             Optional[MinerEntry]: The fetched MinerEntry or None if failed.
         """
-        max_retries = 3
-        backoff_multiplier = 2  # Base wait time in seconds
-        backoff_cap = 15  # Maximum wait time between retries
+        max_retries = 5
+        backoff_multiplier = 10  # Base wait time in seconds
+        backoff_cap = 60  # Maximum wait time between retries
 
         for attempt in range(1, max_retries + 1):
             try:
