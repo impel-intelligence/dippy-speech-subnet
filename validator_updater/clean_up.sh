@@ -47,4 +47,3 @@ echo "Cleaning up unused Docker system resources..."
 docker system prune -a --volumes -f
 
 echo "Docker cleanup complete!"
-
