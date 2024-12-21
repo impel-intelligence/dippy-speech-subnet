@@ -293,7 +293,12 @@ class Validator:
     def __del__(self):
         if hasattr(self, "stop_event"):
             self.stop_event.set()
-        self.subtensor.close()
+            
+        try:
+            self.subtensor.close()
+            bt.logging.warning("Successfully closed subtensor.")
+        except Exception as e:
+            bt.logging.error(f"Failed to close subtensor: {e}", exc_info=True)
 
     def _event_log(self, msg: str, **kwargs):
         try:
