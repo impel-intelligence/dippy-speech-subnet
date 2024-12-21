@@ -9,27 +9,40 @@ if [[ "$confirmation" != "yes" && "$confirmation" != "y" ]]; then
   exit 0
 fi
 
-# Stop all running containers
-echo "Stopping all running containers..."
-docker stop $(docker ps -q) 2>/dev/null || echo "No running containers to stop."
+# Stop all running containers (if any)
+if [[ -n $(docker ps -q) ]]; then
+  echo "Stopping all running containers..."
+  docker stop $(docker ps -q)
+else
+  echo "No running containers to stop."
+fi
 
-# Remove all containers
-echo "Removing all containers..."
-docker rm $(docker ps -aq) 2>/dev/null || echo "No containers to remove."
+# Remove all containers (if any)
+if [[ -n $(docker ps -aq) ]]; then
+  echo "Removing all containers..."
+  docker rm $(docker ps -aq)
+else
+  echo "No containers to remove."
+fi
 
-# Remove all images
-echo "Removing all images..."
-docker rmi $(docker images -q) -f 2>/dev/null || echo "No images to remove."
+# Remove all images (if any)
+if [[ -n $(docker images -q) ]]; then
+  echo "Removing all images..."
+  docker rmi $(docker images -q) -f
+else
+  echo "No images to remove."
+fi
 
-# Remove all volumes
-echo "Removing all volumes..."
-docker volume rm $(docker volume ls -q) -f 2>/dev/null || echo "No volumes to remove."
+# Remove all volumes (if any)
+if [[ -n $(docker volume ls -q) ]]; then
+  echo "Removing all volumes..."
+  docker volume rm $(docker volume ls -q) -f
+else
+  echo "No volumes to remove."
+fi
 
-# Remove all networks
-echo "Removing all networks..."
-docker network rm $(docker network ls -q) 2>/dev/null || echo "No networks to remove."
 
-# Remove unused Docker system resources
+# Clean up unused Docker system resources
 echo "Cleaning up unused Docker system resources..."
 docker system prune -a --volumes -f
 
