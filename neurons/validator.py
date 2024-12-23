@@ -380,142 +380,116 @@ class Validator:
         )
         return new_weights
 
-    async def try_set_weights(self, ttl: int) -> Tuple[bool, Optional[str]]:
-        if self.config.dont_set_weights or self.config.offline:
-            return False, None
-
-        wait_for_inclusion = False
-
-        async def _try_set_weights(wait_for_inclusion: bool = False, debug: bool = False) -> Tuple[bool, Optional[str]]:
-            weights_success = False
-            error_str = None
+    async def set_weights_with_wait(self, weights, netuid, wallet, uids):
+        retries = 5
+        backoff = 1.5
+        msg = None
+        success = False
+        for attempt in range(retries):
             try:
-                # Fetch latest metagraph
-                metagraph = self.subtensor.metagraph(self.config.netuid)
-                # Save types for reporting
-                type_report = {
-                    "metagraph": str(type(metagraph)),  # bittensor.core.metagraph.NonTorchMetagraph
-                }
-                bt.logging.debug(f"data_dump: {type_report}")
-                cpu_weights = self.weights
-                try:
-                    adjusted_weights = self.weights
-                    self.weights = torch.from_numpy(adjusted_weights).clone().detach()
-                except Exception as e:
-                    bt.logging.error(f"error adjusting for vtrust: {e}")
-                    adjusted_weights = torch.tensor(cpu_weights)
-                    self.weights = adjusted_weights.clone().detach()
-                cpu_weights = self.weights
+                success, msg = self.subtensor.set_weights(
+                        netuid=netuid,
+                        wallet=wallet,
+                        uids=uids,
+                        weights=weights,
+                        wait_for_inclusion=False,
+                        wait_for_finalization=False,
+                        version_key=constants.weights_version_key,
+                )
+                if success:
+                    return True
+            except Exception as e:
+                if attempt == retries - 1:
+                    raise e
+                wait_time = backoff**attempt
 
-                if debug:
-                    # Compare weights before and after vtrust adjustment
-                    comparison_table = Table(title="Weights Comparison")
-                    comparison_table.add_column("uid", justify="right", style="cyan", no_wrap=True)
-                    comparison_table.add_column("original", style="magenta")
-                    comparison_table.add_column("adjusted", style="green")
-                    comparison_table.add_column("diff", style="yellow")
+                bt.logging.error(
+                    f"Failed to set weights {msg} (attempt {attempt+1}/{retries}). Retrying in {wait_time:.1f}s..."
+                )
+                self.close_subtensor()
+                self.subtensor = Validator.new_subtensor()
+                time.sleep(wait_time)
+        return False
 
-                    # Dump details about consensus and cpu_weights
-                    bt.logging.warning("=== Consensus details ===")
-                    bt.logging.warning(f"Type: {type(consensus)}")
-                    if isinstance(consensus, np.ndarray):
-                        bt.logging.warning(f"Shape: {consensus.shape}")
-                        bt.logging.warning(f"Dtype: {consensus.dtype}")
-                        bt.logging.warning(f"Min value: {np.min(consensus)}")
-                        bt.logging.warning(f"Max value: {np.max(consensus)}")
-                        bt.logging.warning(f"Mean value: {np.mean(consensus)}")
-                        bt.logging.warning(f"Sum: {np.sum(consensus)}")
-                        bt.logging.warning(f"Has NaN: {np.isnan(consensus).any()}")
-                        bt.logging.warning(f"Has Inf: {np.isinf(consensus).any()}")
-
-                    bt.logging.warning("\n=== CPU Weights details ===")
-                    bt.logging.warning(f"Type: {type(cpu_weights)}")
-                    if isinstance(cpu_weights, (np.ndarray, torch.Tensor)):
-                        if isinstance(cpu_weights, torch.Tensor):
-                            cpu_weights = cpu_weights.detach().cpu().numpy()
-                        bt.logging.warning(f"Shape: {cpu_weights.shape}")
-                        bt.logging.warning(f"Dtype: {cpu_weights.dtype}")
-                        bt.logging.warning(f"Min value: {np.min(cpu_weights)}")
-                        bt.logging.warning(f"Max value: {np.max(cpu_weights)}")
-                        bt.logging.warning(f"Mean value: {np.mean(cpu_weights)}")
-                        bt.logging.warning(f"Sum: {np.sum(cpu_weights)}")
-                        bt.logging.warning(f"Has NaN: {np.isnan(cpu_weights).any()}")
-                        bt.logging.warning(f"Has Inf: {np.isinf(cpu_weights).any()}")
-
-                    for uid in range(len(cpu_weights)):
-                        original = round(float(cpu_weights[uid]), 4)
-                        adjusted = round(float(adjusted_weights[uid]), 4)
-                        diff = round(adjusted - original, 4)
-                        comparison_table.add_row(str(uid), str(original), str(adjusted), str(diff))
-
-                    console = Console()
-                    console.print(comparison_table)
-                self.weights.nan_to_num(0.0)
-                try:
-                    self.subtensor.set_weights(
+    async def _try_set_weights(self, debug: bool = False) -> Tuple[bool, Optional[str]]:
+        weights_success = False
+        error_str = None
+        try:
+            cpu_weights = self.weights
+            adjusted_weights = cpu_weights
+            self.weights.nan_to_num(0.0)
+            try:
+                weights_success = await asyncio.wait_for(
+                    self.set_weights_with_wait(
+                        weights=adjusted_weights,
                         netuid=self.config.netuid,
                         wallet=self.wallet,
                         uids=self.metagraph.uids,
-                        weights=adjusted_weights,
-                        wait_for_inclusion=wait_for_inclusion,
-                        version_key=constants.weights_version_key,
-                    )
-                except Exception as e:
-                    bt.logging.error(f"Set Weights Fail")
-                    raise e
+                    ),
+                    timeout=600  # 10 minutes
+                )
+            except asyncio.TimeoutError:
+                bt.logging.error("Setting weights timed out after 10 minutes")
+                weights_success = False
 
-                weights_report = {"weights": {}}
-                for uid, score in enumerate(self.weights):
-                    weights_report["weights"][uid] = score
-                self._event_log("set_weights_complete", weights=weights_report)
-                bt.logging.warning(f"successfully_set_weights")
-                weights_success = True
-            except Exception as e:
-                bt.logging.error(f"failed_set_weights error={e}\n{traceback.format_exc()}")
-                error_str = f"failed_set_weights error={e}\n{traceback.format_exc()}"
-                return weights_success, error_str
-
-            # Only dump weight state to console
-            ws, ui = self.weights.topk(len(self.weights))
-            table = Table(title="All Weights")
-            table.add_column("uid", justify="right", style="cyan", no_wrap=True)
-            table.add_column("weight", style="magenta")
-            for index, weight in list(zip(ui.tolist(), ws.tolist())):
-                table.add_row(str(index), str(round(weight, 4)))
-            console = Console()
-            console.print(table)
-
-            # Weight setting status
-            status_table = Table(title="Weight Setting Status")
-            status_table.add_column("Status", style="cyan")
-            status_table.add_column("Value", style="magenta")
-            status_table.add_row("successfully_set_weights", str(weights_success))
-            weights_failed = not weights_success
-            status_table.add_row("failed_set_weights", str(weights_failed))
-            status_table.add_row("wait_for_inclusion", str(wait_for_inclusion))
-            console.print(status_table)
+            weights_report = {"weights": {}}
+            for uid, score in enumerate(self.weights):
+                weights_report["weights"][uid] = score
+            self._event_log("set_weights_complete", weights=weights_report)
+            bt.logging.warning(f"successfully_set_weights")
+            weights_success = True
+        except Exception as e:
+            bt.logging.error(f"failed_set_weights error={e}\n{traceback.format_exc()}")
+            error_str = f"failed_set_weights error={e}\n{traceback.format_exc()}"
             return weights_success, error_str
+
+        # Log weight state
+        ws, ui = self.weights.topk(len(self.weights))
+        table = Table(title="All Weights")
+        table.add_column("uid", justify="right", style="cyan", no_wrap=True)
+        table.add_column("weight", style="magenta")
+        for index, weight in list(zip(ui.tolist(), ws.tolist())):
+            table.add_row(str(index), str(round(weight, 4)))
+        console = Console()
+        console.print(table)
+
+        # Weight setting status
+        status_table = Table(title="Weight Setting Status")
+        status_table.add_column("Status", style="cyan")
+        status_table.add_column("Value", style="magenta")
+        status_table.add_row("successfully_set_weights", str(weights_success))
+        weights_failed = not weights_success
+        status_table.add_row("failed_set_weights", str(weights_failed))
+        console.print(status_table)
+        return weights_success, error_str
+
+    async def try_set_weights(self, ttl: int) -> Tuple[bool, Optional[str]]:
+        if self.config.offline:
+            return False, None
 
         weights_set_success = False
         error_msg = None
+        exception_msg = None
         try:
             bt.logging.debug("Setting weights.")
-            weights_set_success, error_msg = await asyncio.wait_for(_try_set_weights(wait_for_inclusion), ttl)
+            weights_set_success, error_msg = await asyncio.wait_for(self._try_set_weights(), ttl)
+            bt.logging.debug("Finished setting weights.")
+        except asyncio.TimeoutError:
+            error_msg = f"Failed to set weights after {ttl} seconds"
+            bt.logging.error(error_msg)
+        except Exception as e:
+            exception_msg = f"Error setting weights: {e}\n{traceback.format_exc()}"
+            bt.logging.error(exception_msg)
+        finally:
             payload = {
                 "time": str(dt.datetime.now(dt.timezone.utc)),
                 "weights_set_success": weights_set_success,
-                "wait_for_inclusion": wait_for_inclusion,
                 "error": error_msg,
-            }
-            bt.logging.debug("Finished setting weights.")
+                "exception_msg": exception_msg,
+                "weights_version": constants.weights_version_key,
+            }   
             logged_payload = self._with_decoration(self.local_metadata, self.wallet.hotkey, payload)
             self._remote_log(logged_payload)
-        except asyncio.TimeoutError:
-            bt.logging.error(f"Failed to set weights after {ttl} seconds")
-            error_msg = f"Failed to set weights after {ttl} seconds"
-        except Exception as e:
-            bt.logging.error(f"Error setting weights: {e}")
-            error_msg = f"Error setting weights: {e}\n{traceback.format_exc()}"
         return weights_set_success, error_msg
 
     async def build_registry(
@@ -609,30 +583,56 @@ class Validator:
 
         return invalid_uids, miner_registry
 
-    async def try_sync_metagraph(self, ttl: int) -> bool:
-        def sync_metagraph(_):
+    async def try_sync_metagraph(self, ttl: int = 120) -> bool:
+        network = random.choice(["finney", "subvortex"])
+        try:
+            bt.logging.warning(f"attempting sync with network {network}")
+            self.metagraph = Metagraph(netuid=self.config.netuid, network=network, lite=False, sync=True)
+            return True
+        except Exception as e:
+            metagraph_failure_payload = {
+                    "initial_metagraph_sync_success": False,
+                    "failure_str": str(e),
+                    "stacktrace": traceback.format_exc(),
+                    "network":network,
+                }
+            logged_payload = self._with_decoration(
+                    self.local_metadata, self.wallet.hotkey, payload=metagraph_failure_payload
+                )
+            self._remote_log(logged_payload)
+            bt.logging.error(f"could not sync metagraph {e} using network {network}. Starting retries. If this issue persists please restart the validator script")
+            self.close_subtensor()
+            self.subtensor = Validator.new_subtensor()
+
+        def sync_metagraph(attempt):
             try:
-                self.metagraph = self.subtensor.metagraph(netuid=self.config.netuid, lite=False)
-                bt.logging.warning(f"Fetched Metagraph")
+                self.metagraph.sync(block=None, lite=False, subtensor=self.subtensor)
             except Exception as e:
                 bt.logging.error(f"{e}")
-                # self.subtensor = Subtensor(config=self.config)
-                self.subtensor = bt.subtensor(config=self.config)
+                # Log failure to sync metagraph
+                metagraph_failure_payload = {
+                    "metagraph_sync_success": False,
+                    "failure_str": str(e),
+                    "attempt": attempt,
+                    "stacktrace": traceback.format_exc(),
+                }
+                logged_payload = self._with_decoration(
+                    self.local_metadata, self.wallet.hotkey, payload=metagraph_failure_payload
+                )
+                self._remote_log(logged_payload)
+                self.close_subtensor()
+                self.subtensor = Validator.new_subtensor()
+                raise e
 
         for attempt in range(3):
-            process = multiprocessing.Process(target=sync_metagraph, args=(self.subtensor.chain_endpoint,))
-            process.start()
-            process.join(timeout=ttl)
-
-            if process.is_alive():
-                process.terminate()
-                process.join()
-                bt.logging.error(f"Failed to sync metagraph after {ttl} seconds (attempt {attempt + 1}/3)")
-
+            try:
+                sync_metagraph(attempt)
+                return True
+            except Exception as e:
+                bt.logging.error(f"could not sync metagraph {e}")
                 if attempt == 2:
                     return False
-            else:
-                break
+
         bt.logging.success("Synced metagraph")
         self._event_log("metagraph_sync_success")
         return True
@@ -703,31 +703,66 @@ class Validator:
         return None
 
     def fetch_model_data(self, uid: int, hotkey: str) -> Optional[MinerEntry]:
-        try:
-            bt.logging.warning(f"get_metadata for uid={uid} hotkey={hotkey} netuid={self.config.netuid}")
+        max_retries = 10
+        base_delay = 1.5  # seconds
+        for attempt in range(max_retries):
+            try:
+                # First try using self.subtensor
+                try:
+                    metadata = bt.core.extrinsics.serving.get_metadata(
+                        self=self.subtensor,
+                        netuid=self.config.netuid,
+                        hotkey=hotkey
+                    )
+                except Exception as e:
+                    bt.logging.warning(f"Failed to fetch metadata with self.subtensor: {e}, trying dedicated subtensor")
+                    # Fall back to dedicated subtensor
+                    dedicated_subtensor = None
+                    try:
+                        network = "finney"
+                        dedicated_subtensor = Subtensor(network=network)
+                        bt.logging.warning(f"Created dedicated subtensor for metadata fetch: {dedicated_subtensor} for {uid}")
+                        
+                        metadata = bt.core.extrinsics.serving.get_metadata(
+                            self=dedicated_subtensor,
+                            netuid=self.config.netuid,
+                            hotkey=hotkey
+                        )
+                    finally:
+                        # Ensure we close the dedicated subtensor
+                        if dedicated_subtensor is not None:
+                            try:
+                                dedicated_subtensor.close()
+                            except Exception as close_error:
+                                bt.logging.error(f"Error closing dedicated subtensor: {close_error} for {uid}")
 
-            metadata = self.get_metadata_with_retry(hotkey=hotkey)
+                if metadata is None:
+                    return None
 
-            bt.logging.debug(f"Pulled Metadata {metadata}")
+                commitment = metadata["info"]["fields"][0]
+                hex_data = commitment[list(commitment.keys())[0]][2:]
+                chain_str = bytes.fromhex(hex_data).decode()
 
-            if metadata is None:
-                return None
+                model_id = ModelId.from_compressed_str(chain_str)
+                model_id.hotkey = hotkey
 
-            commitment = metadata["info"]["fields"][0]
-            hex_data = commitment[list(commitment.keys())[0]][2:]
-            chain_str = bytes.fromhex(hex_data).decode()
+                block = metadata["block"]
+                entry = MinerEntry()
+                entry.block = block
+                entry.miner_model_id = model_id
+                return entry
 
-            model_id = ModelId.from_compressed_str(chain_str)
-            model_id.hotkey = hotkey
+            except Exception as e:
+                delay = base_delay ** attempt
+                if attempt < max_retries - 1:  # Don't log "retrying" on the last attempt
+                    bt.logging.error(f"Attempt {attempt + 1}/{max_retries} failed to fetch data for {hotkey}: {e}")
+                    bt.logging.info(f"Retrying in {delay:.1f} seconds...")
+                    time.sleep(delay)
+                else:
+                    bt.logging.error(f"All attempts failed to fetch data for {hotkey}: {e}")
+                    return None
 
-            block = metadata["block"]
-            entry = MinerEntry()
-            entry.block = block
-            entry.miner_model_id = model_id
-            return entry
-        except Exception as e:
-            bt.logging.error(f"could not fetch data for {hotkey} : {e}")
-            return None
+        return None
 
     @staticmethod
     def adjusted_temperature_multipler(current_block: int) -> float:
@@ -1039,6 +1074,27 @@ def _get_model_score(
 
     bt.logging.debug(f"Model {namespace}/{name} has score data {score_data}")
     return score_data
+
+
+@staticmethod
+def new_subtensor():
+    network = random.choice(["finney", "subvortex"])
+    subtensor = Subtensor(network=network)
+    bt.logging.warning(f"subtensor retry initialized with Subtensor(): {subtensor}")
+    return subtensor
+
+def close_subtensor(self):
+    status = ""
+    try:
+        self.subtensor.close()
+        status = "subtensor_closed"
+    except Exception as e:
+        status = f"{str(e)}\n{traceback.format_exc()}"
+    payload = {"subtensor_close_status": status}
+    logged_payload = self._with_decoration(
+                self.local_metadata, self.wallet.hotkey, payload=payload
+            )
+    self._remote_log(logged_payload)
 
 
 if __name__ == "__main__":
