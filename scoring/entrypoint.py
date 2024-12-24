@@ -9,7 +9,7 @@ import torch
 import typer
 
 from scoring.common import EvaluateModelRequest
-from logging_setup import setup_logging
+from scoring.logging_setup import setup_logging
 
 app = typer.Typer()
 
