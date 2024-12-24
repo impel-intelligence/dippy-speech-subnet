@@ -1,6 +1,7 @@
 import os
 import tempfile
 import uuid
+import logging
 
 import joblib
 import numpy as np
@@ -13,6 +14,8 @@ from parler_tts import ParlerTTSForConditionalGeneration
 from transformers import AutoTokenizer
 
 from huggingface_hub import hf_hub_download
+
+logger = logging.getLogger(__name__)  
 
 SPEAKERS = [
     {
@@ -214,27 +217,26 @@ def scoring_workflow(repo_namespace, repo_name, text, voice_description):
 
     # Setup device
     device = "cuda:0" if torch.cuda.is_available() else "cpu"
-    print(f"Using device: {device}")
+    logger.info(f"Device selected for computation: {device}")
 
-    # Load the mini parler model from hugging face
-    # model_name = "parler-tts/parler-tts-mini-v1"  # an 880M parameter model.
-    model_name = f"{repo_namespace}/{repo_name}"  # an 1.2B parameter model.
+    # model_name = "parler-tts/parler-tts-mini-v1"  
+    model_name = f"{repo_namespace}/{repo_name}"  
 
-    print(f"Model Name {model_name}")
-    # model = ParlerTTSForConditionalGeneration.from_pretrained(model_name).to(device)
-    # tokenizer = AutoTokenizer.from_pretrained(model_name)
- 
+    logger.info(f"Attempting to load model: {model_name}")
+
+    # Parler TTS Model
     try:
         model = ParlerTTSForConditionalGeneration.from_pretrained(model_name).to(device)
-        print("Model loaded successfully.")
+        logger.info(f"Model '{model_name}' loaded successfully onto device '{device}'.")
     except Exception as e:
-        print(f"Error loading model: {e}")
+        logger.error(f"Error loading Parler TTS model: {e}")
 
+    # Parler TTS Tokenizer 
     try:
         tokenizer = AutoTokenizer.from_pretrained(model_name)
-        print("Tokenizer loaded successfully.")
+        logger.info(f"Tokenizer for model '{model_name}' loaded successfully.")
     except Exception as e:
-        print(f"Error loading tokenizer: {e}")
+        logger.error(f"Failed to load Parler TTS tokenizer for model '{model_name}'. Error: {e}", exc_info=True)
         
 
 

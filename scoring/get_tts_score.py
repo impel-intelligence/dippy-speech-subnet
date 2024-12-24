@@ -6,6 +6,7 @@ from scoring.common import EVALUATION_DATASET_SAMPLE_SIZE, MAX_GENERATION_LENGTH
 from scoring.dataset import StreamedSyntheticDataset
 from scoring.scoring_logic.logic import scoring_workflow
 
+logger = logging.getLogger(__name__)  # Create a logger for this module
 
 def load_dataset():
 
