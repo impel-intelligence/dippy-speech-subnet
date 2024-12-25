@@ -8,6 +8,7 @@ from scoring.scoring_logic.logic import scoring_workflow
 
 logger = logging.getLogger(__name__)  # Create a logger for this module
 
+
 def load_dataset():
 
     print("Sampling dataset")
@@ -46,27 +47,23 @@ def load_dataset():
         raise Exception(f"Error loading dataset: {failure_reason}")
 
 
-def apply_weights(base_score: float, text: str, weights: dict) -> float:
+def apply_weights(base_score: float, wer: float) -> float:
     """
-    Apply multiple weighting mechanisms to adjust the base score.
+    Adjust the base score by incorporating the Word Error Rate (WER).
 
     :param base_score: The initial score before weighting.
-    :param text: The text input used to calculate length-based weights.
-    :param weights: A dictionary of weights to apply.
-    :return: Weighted score.
+    :param wer: The Word Error Rate (WER) of the transcription.
+    :return: The weighted score, with base_score and WER equally weighted (50% each).
     """
-    weighted_score = base_score
-    # An Example scaffold for when we choose to leverage weights
 
-    # if isinstance(weights, dict) and "text_length" in weights:
-    #     length_factor = len(text) / 100  # Normalize text length by dividing by 100
-    #     weighted_score *= weights["text_length"] * length_factor
+    # Handle WER weighting
+    if wer == 0.0:  # Perfect transcription
+        wer_weighted_score = 1.0  # Perfect score for WER
+    else:
+        wer_weighted_score = 1.0 - wer  # Scale WER score (lower WER is better)
 
-    # Example to add other weights
-    # # Apply voice description weight if provided
-    # if "voice_description" in weights:
-    #     description_factor = len(voice_description) / 50  # Normalize by dividing by 50 as an example
-    #     weighted_score *= weights["voice_description"] * description_factor
+    # Combine base score and WER score with 50% weight each
+    weighted_score = 0.5 * base_score + 0.5 * wer_weighted_score
 
     return weighted_score
 
@@ -91,14 +88,16 @@ def get_tts_score(request: str) -> dict:
     # Iterate over the data, which contains tuples of text, last user message, and voice description.
     for text, last_user_message, voice_description in data:
         try:
-            # Calculate the base score using the scoring workflow function.
-            base_score = scoring_workflow(request.repo_namespace, request.repo_name, text, voice_description)
+            # Calculate the base score and wer using the scoring workflow function.
+            base_score, wer_score = scoring_workflow(request.repo_namespace, request.repo_name, text, voice_description)
 
             # Extract float values from each tensor in the 'scores' list for further processing
             float_values_from_tensors = [score.item() for score in base_score]
 
+            logger.error(f"PRAVIN TEST - {base_score}----{wer_score}")
+
             # Apply weights to the base score based on text properties.
-            weighted_score = apply_weights(float_values_from_tensors, text, weights)
+            weighted_score = apply_weights(float_values_from_tensors, wer_score)
 
             # Append the weighted score to the scores list.
             scores.append(weighted_score)

@@ -33,3 +33,4 @@ isort
 rich
 colorama
 librosa
+jiwer

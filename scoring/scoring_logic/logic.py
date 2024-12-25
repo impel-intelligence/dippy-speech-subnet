@@ -10,6 +10,7 @@ import soundfile as sf
 import torch
 import torch.nn as nn
 from huggingface_hub import hf_hub_download
+from jiwer import Compose, RemovePunctuation, Strip, ToLowerCase, wer
 from modelscope.pipelines import pipeline
 from modelscope.utils.constant import Tasks
 from parler_tts import ParlerTTSForConditionalGeneration
@@ -179,6 +180,37 @@ def calculate_human_similarity_score(audio_emo_vector, model_file_name, pca_file
     return score
 
 
+def calculate_wer(reference: str, hypothesis: str, apply_preprocessing: bool = True) -> float:
+    """
+    Calculate the Word Error Rate (WER) between a reference text and a hypothesis text.
+
+    Args:
+        reference (str): The ground truth reference text.
+        hypothesis (str): The transcribed hypothesis text.
+        apply_preprocessing (bool): Whether to apply preprocessing to normalize texts.
+
+    Returns:
+        float: The Word Error Rate (WER).
+    """
+    # Preprocessing pipeline
+    if apply_preprocessing:
+        preprocessing = Compose(
+            [
+                RemovePunctuation(),  # Remove punctuation
+                ToLowerCase(),  # Convert to lowercase
+                Strip(),  # Strip leading/trailing spaces
+            ]
+        )
+        # Apply preprocessing to both reference and hypothesis
+        reference = preprocessing(reference)
+        hypothesis = preprocessing(hypothesis)
+
+    # Calculate WER
+    error_rate = wer(reference, hypothesis)
+
+    return error_rate
+
+
 def load_whisper_model(device):
     try:
         whisper_model_name = "openai/whisper-tiny"
@@ -296,15 +328,19 @@ def scoring_workflow(repo_namespace, repo_name, text, voice_description):
         # Transcribe audio
         transcription = transcribe_audio(audio_path, processor, whisper_model, device)
 
-    
     # Validate results
     if audio_emo_vector is None or audio_emo_vector.size == 0:
         raise RuntimeError("Emotion vector is missing or empty.")
     if not transcription.strip():
         raise RuntimeError("Transcription is missing or empty.")
 
-    
-    logger.info(f"TEST - {transcription}")
+    # Calculate WER
+    try:
+        wer_score = calculate_wer(text, transcription)
+        logger.info(f"Word Error Rate (WER) calculated: {wer_score}")
+    except Exception as e:
+        logger.error(f"Failed to calculate Word Error Rate (WER): {e}", exc_info=True)
+        raise RuntimeError(f"WER calculation failed: {e}")
 
     # Calculate similarity score
     try:
@@ -314,4 +350,4 @@ def scoring_workflow(repo_namespace, repo_name, text, voice_description):
         logger.error(f"Failed to calculate human similarity score: {e}", exc_info=True)
         raise RuntimeError(f"Human similarity score calculation failed.{e}")
 
-    return score
+    return (score, wer_score)
