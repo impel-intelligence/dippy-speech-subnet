@@ -32,3 +32,4 @@ black
 isort
 rich
 colorama
+librosa
