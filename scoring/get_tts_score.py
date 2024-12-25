@@ -55,6 +55,7 @@ def apply_weights(base_score: float, wer: float) -> float:
     :param wer: The Word Error Rate (WER) of the transcription.
     :return: The weighted score, with base_score and WER equally weighted (50% each).
     """
+    base_score = base_score[0]
 
     # Handle WER weighting
     if wer == 0.0:  # Perfect transcription
@@ -82,8 +83,8 @@ def get_tts_score(request: str) -> dict:
     scores = []
     # Initialize the result dictionary with a default final score of 0.
     result = {"final_score": 0}
-    # Define the weights for scoring, with 'text_length' having a default weight of 1.
-    weights = {"text_length": 1}
+    # # Define the weights for scoring, with 'text_length' having a default weight of 1.
+    # weights = {"text_length": 1}
 
     # Iterate over the data, which contains tuples of text, last user message, and voice description.
     for text, last_user_message, voice_description in data:
@@ -93,8 +94,6 @@ def get_tts_score(request: str) -> dict:
 
             # Extract float values from each tensor in the 'scores' list for further processing
             float_values_from_tensors = [score.item() for score in base_score]
-
-            logger.error(f"PRAVIN TEST - {base_score}----{wer_score}")
 
             # Apply weights to the base score based on text properties.
             weighted_score = apply_weights(float_values_from_tensors, wer_score)
