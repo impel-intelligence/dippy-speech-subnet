@@ -57,4 +57,3 @@ RUN uv pip install --system -e .
 COPY scoring/entrypoint.py ./
 
 ENTRYPOINT ["python", "entrypoint.py"]
-

@@ -1,7 +1,7 @@
 import gc
 import json
 import sys
-import time
+import logging
 import traceback
 from typing import Optional
 
@@ -9,8 +9,13 @@ import torch
 import typer
 
 from scoring.common import EvaluateModelRequest
+from scoring.logging_setup import setup_logging
 
 app = typer.Typer()
+
+# Set up logging
+setup_logging()
+logger = logging.getLogger(__name__)
 
 
 def write_to_json(data: dict, filepath: str = "/tmp/output.json"):

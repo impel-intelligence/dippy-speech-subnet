@@ -1,18 +1,22 @@
+import logging
 import os
 import tempfile
 import uuid
 
 import joblib
+import librosa
 import numpy as np
 import soundfile as sf
 import torch
 import torch.nn as nn
+from huggingface_hub import hf_hub_download
+from jiwer import Compose, RemovePunctuation, Strip, ToLowerCase, wer
 from modelscope.pipelines import pipeline
 from modelscope.utils.constant import Tasks
 from parler_tts import ParlerTTSForConditionalGeneration
-from transformers import AutoTokenizer
+from transformers import AutoTokenizer, WhisperForConditionalGeneration, WhisperProcessor
 
-from huggingface_hub import hf_hub_download
+logger = logging.getLogger(__name__)
 
 SPEAKERS = [
     {
@@ -126,37 +130,6 @@ class EmotionMLPRegression(nn.Module):
         return out
 
 
-# Function to generate and save audio
-def generate_and_save_audio(speaker, prompt_text, sample_number, model, tokenizer, device, tempdir):
-    try:
-        description = speaker["description"]
-        speaker_name = speaker["name"]
-
-        # Tokenize the description and prompt
-        input_ids = tokenizer(description, return_tensors="pt").input_ids.to(device)
-        prompt_input_ids = tokenizer(prompt_text, return_tensors="pt").input_ids.to(device)
-
-        # Generate audio
-        generation = model.generate(input_ids=input_ids, prompt_input_ids=prompt_input_ids)
-
-        # Convert to numpy array
-        audio_arr = generation.cpu().numpy().squeeze()
-
-        # Define output filename
-        output_filename = f"{sample_number}_{speaker_name}.wav"
-        output_path = os.path.join(tempdir, output_filename)
-
-        # Save audio to file
-        sf.write(output_path, audio_arr, model.config.sampling_rate)
-        print(f"Saved audio for Sample_{sample_number} with {speaker_name} to {output_path}")
-
-        # Return the path to the output file
-        return output_path
-    except Exception as e:
-        print(f"Failed to generate audio for Sample_{sample_number} with {speaker.get('name', 'Unknown Speaker')}: {e}")
-        return None
-
-
 def calculate_human_similarity_score(audio_emo_vector, model_file_name, pca_file_name):
     """Calculate the human similarity score based on the audio emotion vector."""
 
@@ -207,75 +180,174 @@ def calculate_human_similarity_score(audio_emo_vector, model_file_name, pca_file
     return score
 
 
-def scoring_workflow(repo_namespace, repo_name, text, voice_description):
+def calculate_wer(reference: str, hypothesis: str, apply_preprocessing: bool = True) -> float:
+    """
+    Calculate the Word Error Rate (WER) between a reference text and a hypothesis text.
 
+    Args:
+        reference (str): The ground truth reference text.
+        hypothesis (str): The transcribed hypothesis text.
+        apply_preprocessing (bool): Whether to apply preprocessing to normalize texts.
+
+    Returns:
+        float: The Word Error Rate (WER).
+    """
+    # Preprocessing pipeline
+    if apply_preprocessing:
+        preprocessing = Compose(
+            [
+                RemovePunctuation(),  # Remove punctuation
+                ToLowerCase(),  # Convert to lowercase
+                Strip(),  # Strip leading/trailing spaces
+            ]
+        )
+        # Apply preprocessing to both reference and hypothesis
+        reference = preprocessing(reference)
+        hypothesis = preprocessing(hypothesis)
+
+    # Calculate WER
+    error_rate = wer(reference, hypothesis)
+
+    return error_rate
+
+
+def load_whisper_model(device):
+    try:
+        whisper_model_name = "openai/whisper-tiny"
+        processor = WhisperProcessor.from_pretrained(whisper_model_name)
+        whisper_model = WhisperForConditionalGeneration.from_pretrained(whisper_model_name).to(device)
+        logger.info("Whisper Tiny model loaded successfully.")
+        return processor, whisper_model
+    except Exception as e:
+        logger.error(f"Failed to load Whisper Tiny model: {e}", exc_info=True)
+        raise RuntimeError("Whisper model loading failed.")
+
+
+def load_parler_model(repo_namespace, repo_name, device):
+    model_name = f"{repo_namespace}/{repo_name}"
+    try:
+        model = ParlerTTSForConditionalGeneration.from_pretrained(model_name).to(device)
+        tokenizer = AutoTokenizer.from_pretrained(model_name)
+        logger.info(f"Parler TTS model '{model_name}' and tokenizer loaded successfully.")
+        return model, tokenizer
+    except Exception as e:
+        logger.error(f"Failed to load Parler TTS model or tokenizer: {e}", exc_info=True)
+        raise RuntimeError(f"Parler TTS model or tokenizer loading failed : {e}")
+
+
+def generate_audio(speaker, prompt_text, sample_number, model, tokenizer, device, tempdir):
+    try:
+        description = speaker["description"]
+        speaker_name = speaker["name"]
+
+        # Tokenize the description and prompt
+        input_ids = tokenizer(description, return_tensors="pt").input_ids.to(device)
+        prompt_input_ids = tokenizer(prompt_text, return_tensors="pt").input_ids.to(device)
+
+        # Generate audio
+        generation = model.generate(input_ids=input_ids, prompt_input_ids=prompt_input_ids)
+
+        # Convert to numpy array
+        audio_arr = generation.cpu().numpy().squeeze()
+
+        # Define output filename
+        output_filename = f"{sample_number}_{speaker_name}.wav"
+        output_path = os.path.join(tempdir, output_filename)
+
+        # Save audio to file
+        sf.write(output_path, audio_arr, model.config.sampling_rate)
+        logger.info(f"Saved audio for Sample_{sample_number} with {speaker_name} to {output_path}")
+
+        # Return the path to the output file
+        return output_path
+    except Exception as e:
+        logger.error(
+            f"Failed to generate audio for Sample_{sample_number} with {speaker.get('name', 'Unknown Speaker')}: {e}"
+        )
+        raise RuntimeError("Audio generation failed.")
+
+
+def process_emotion(audio_path):
+    try:
+        inference_pipeline = pipeline(task=Tasks.emotion_recognition, model="iic/emotion2vec_plus_large")
+        logger.info("Emotion2Vector Model initialized successfully.")
+        rec_result = inference_pipeline(audio_path, granularity="utterance", extract_embedding=True)
+        return rec_result[0]["feats"]
+    except Exception as e:
+        logger.error(f"Failed to process audio for Emotion2Vector: {e}", exc_info=True)
+        raise RuntimeError("Emotion2Vector processing failed.")
+
+
+def transcribe_audio(audio_path, processor, whisper_model, device):
+    try:
+        audio, sample_rate = sf.read(audio_path)
+
+        # Resample the audio to 16,000 Hz if necessary
+        if sample_rate != 16000:
+            audio = librosa.resample(audio, orig_sr=sample_rate, target_sr=16000)
+            sample_rate = 16000
+
+        # Clamp audio to avoid clipping issues
+        audio = np.clip(audio, -1.0, 1.0)
+
+        inputs = processor(audio, sampling_rate=sample_rate, return_tensors="pt").to(device)
+
+        with torch.no_grad():
+            predicted_ids = whisper_model.generate(inputs.input_features)
+        transcription = processor.batch_decode(predicted_ids, skip_special_tokens=True)[0]
+        logger.info(f"Transcription: {transcription}")
+        return transcription
+    except Exception as e:
+        logger.error(f"Error during transcription with Whisper Tiny: {e}", exc_info=True)
+        raise RuntimeError(f"Audio transcription failed: {e}")
+
+
+def scoring_workflow(repo_namespace, repo_name, text, voice_description):
     DISCRIMINATOR_FILE_NAME = "discriminator_v1.0.pth"
     MODEL_PCA_FILE_NAME = "discriminator_pca_v1.0.pkl"
 
-    # Setup device
     device = "cuda:0" if torch.cuda.is_available() else "cpu"
-    print(f"Using device: {device}")
+    logger.info(f"Device selected for computation: {device}")
 
-    # Load the mini parler model from hugging face
-    # model_name = "parler-tts/parler-tts-mini-v1"  # an 880M parameter model.
-    model_name = f"{repo_namespace}/{repo_name}"  # an 1.2B parameter model.
+    # Load models
+    processor, whisper_model = load_whisper_model(device)
+    model, tokenizer = load_parler_model(repo_namespace, repo_name, device)
 
-    print(f"Model Name {model_name}")
-    # model = ParlerTTSForConditionalGeneration.from_pretrained(model_name).to(device)
-    # tokenizer = AutoTokenizer.from_pretrained(model_name)
- 
-    try:
-        model = ParlerTTSForConditionalGeneration.from_pretrained(model_name).to(device)
-        print("Model loaded successfully.")
-    except Exception as e:
-        print(f"Error loading model: {e}")
-
-    try:
-        tokenizer = AutoTokenizer.from_pretrained(model_name)
-        print("Tokenizer loaded successfully.")
-    except Exception as e:
-        print(f"Error loading tokenizer: {e}")
-        
-
-
-
-    # Initialize speaker index
+    # Initialize speaker
     speaker_index = 0
-
-    # Select a speaker from the list
-    if speaker_index >= len(SPEAKERS):
-        speaker_index = 0  # Reset index if we've used all speakers
-    speaker = SPEAKERS[speaker_index]
-
-    # Generate a unique sample number with the speaker's name
+    speaker = SPEAKERS[speaker_index % len(SPEAKERS)]
     sample_number = f"{speaker['name']}_{uuid.uuid4()}"
-    prompt_text = text
 
-    # Create a temporary directory for audio files
     with tempfile.TemporaryDirectory() as tmpdirname:
-        # Generate and save audio for the selected sample
-        audio_path = generate_and_save_audio(speaker, prompt_text, sample_number, model, tokenizer, device, tmpdirname)
+        # Generate audio
+        audio_path = generate_audio(speaker, text, sample_number, model, tokenizer, device, tmpdirname)
 
-        # === Initialize the Emotion2Vector Model ===
-        try:
-            inference_pipeline = pipeline(task=Tasks.emotion_recognition, model="iic/emotion2vec_plus_large")
-            print("Emotion2Vector Model initialized successfully.")
-        except Exception as e:
-            raise RuntimeError(f"Emotion2Vector Model initialization failed: {e}")
+        # Process emotion
+        audio_emo_vector = process_emotion(audio_path)
 
-        if not audio_path:
-            print(f"Audio file not found for {sample_number} at {audio_path}")
-        else:
-            try:
-                # Extract emotion2vec vectors for audio file
-                rec_result = inference_pipeline(audio_path, granularity="utterance", extract_embedding=True)
+        # Transcribe audio
+        transcription = transcribe_audio(audio_path, processor, whisper_model, device)
 
-                audio_emo_vector = rec_result[0]["feats"]  # Extract the embedding from the result
+    # Validate results
+    if audio_emo_vector is None or audio_emo_vector.size == 0:
+        raise RuntimeError("Emotion vector is missing or empty.")
+    if not transcription.strip():
+        raise RuntimeError("Transcription is missing or empty.")
 
-            except Exception as e:
-                print(f"Error processing audio file for {sample_number} at {audio_path}: {e}")
+    # Calculate WER
+    try:
+        wer_score = calculate_wer(text, transcription)
+        logger.info(f"Word Error Rate (WER) calculated: {wer_score}")
+    except Exception as e:
+        logger.error(f"Failed to calculate Word Error Rate (WER): {e}", exc_info=True)
+        raise RuntimeError(f"WER calculation failed: {e}")
 
-    # Calculate the human similarity score
-    score = calculate_human_similarity_score(audio_emo_vector, DISCRIMINATOR_FILE_NAME, MODEL_PCA_FILE_NAME)
+    # Calculate similarity score
+    try:
+        score = calculate_human_similarity_score(audio_emo_vector, DISCRIMINATOR_FILE_NAME, MODEL_PCA_FILE_NAME)
+        logger.info(f"Human similarity score calculated: {score}")
+    except Exception as e:
+        logger.error(f"Failed to calculate human similarity score: {e}", exc_info=True)
+        raise RuntimeError(f"Human similarity score calculation failed.{e}")
 
-    return score
+    return (score, wer_score)
