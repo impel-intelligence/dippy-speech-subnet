@@ -542,7 +542,7 @@ class Persistence:
                 try:
                     cur.execute(
                         """
-                        SELECT m.*, h.status, h.safetensors_hash, h.total_score, h.timestamp, h.notes
+                        SELECT m.*, h.status, h.repo_namespace, h.repo_name, h.safetensors_hash, h.total_score, h.timestamp, h.notes
                         FROM miner_entries m
                         LEFT JOIN hash_entries h ON m.hash = h.hash
                         
