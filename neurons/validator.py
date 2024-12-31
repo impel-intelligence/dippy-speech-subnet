@@ -423,10 +423,11 @@ class Validator:
             adjusted_weights = cpu_weights
             self.weights.nan_to_num(0.0)
             try:
+                netuid = int(self.config.netuid)
                 weights_success = await asyncio.wait_for(
                     self.set_weights_with_wait(
                         weights=adjusted_weights,
-                        netuid=self.config.netuid,
+                        netuid=netuid,
                         wallet=self.wallet,
                         uids=self.metagraph.uids,
                     ),
