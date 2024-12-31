@@ -393,9 +393,13 @@ class Validator:
                         uids=uids,
                         weights=weights,
                         wait_for_inclusion=False,
-                        wait_for_finalization=False,
+                        wait_for_finalization=True,
                         version_key=constants.weights_version_key,
                 )
+                if msg:
+                    bt.logging.error(
+                        f"called set_weights and received msg {msg}"
+                    )
                 if success:
                     return True
             except Exception as e:
