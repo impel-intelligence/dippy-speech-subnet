@@ -125,8 +125,12 @@ class StreamedSyntheticDataset(Dataset):
         for data_point in data:
             system_prompt = data_point["system_prompt"]
             # voice_description = data_point["voice_description"]
-            voice_description = "melodious"
+          
+            # TEMP REMOVE AND REPLACE WITH ACTUAL ONE API IS READY?
+            voice_description = "Eric's voice is deep and resonant, providing a commanding presence in his speech. A **male voice with an American accent**, his **very low-pitched voice** is captured with crisp clarity. His tone is **authoritative yet slightly monotone**, emphasizing his strong and steady delivery."
+            
             messages = [{"role": "system", "content": system_prompt}]
+            
             # get index of the last message from the chatbot
             input_len_so_far = 0
             limit_reached = False
