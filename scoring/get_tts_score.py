@@ -11,7 +11,7 @@ logger = logging.getLogger(__name__)  # Create a logger for this module
 
 
 def load_dataset():
-    NUMBER_OF_SAMPLES = 30
+    NUMBER_OF_SAMPLES = 10
 
 
     print("Sampling dataset")
@@ -25,9 +25,13 @@ def load_dataset():
         #sampled_data = dataset.__getitem__(5)
         sampled_data = []
         for _ in range(NUMBER_OF_SAMPLES):
-            random_index = random.randint(0, EVALUATION_DATASET_SAMPLE_SIZE - 1)  # Generate a random index
+
+            _CURRENT_EVALUATION_DATASET_SAMPLE_SIZE = len(dataset.dataset)
+
+            random_index = random.randint(0, _CURRENT_EVALUATION_DATASET_SAMPLE_SIZE  - 1)  # Generate a random index
+
             sample = dataset.__getitem__(random_index)  # Get the sample using __getitem__
-            
+
             response, query, description = sample
     
             # Append the sample tuple to the list

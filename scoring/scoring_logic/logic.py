@@ -309,6 +309,7 @@ def scoring_workflow(repo_namespace, repo_name, text, voice_description):
     device = "cuda:0" if torch.cuda.is_available() else "cpu"
     logger.info(f"Device selected for computation: {device}")
 
+
     # Load models
     processor, whisper_model = load_whisper_model(device)
     model, tokenizer = load_parler_model(repo_namespace, repo_name, device)
@@ -322,11 +323,14 @@ def scoring_workflow(repo_namespace, repo_name, text, voice_description):
         # Generate audio
         audio_path = generate_audio(speaker, text, sample_number, model, tokenizer, device, tmpdirname)
 
+
         # Process emotion
         audio_emo_vector = process_emotion(audio_path)
 
+
         # Transcribe audio
         transcription = transcribe_audio(audio_path, processor, whisper_model, device)
+
 
     # Validate results
     if audio_emo_vector is None or audio_emo_vector.size == 0:
