@@ -26,19 +26,23 @@ def prepare_from_hf_dataset(dataset_name: str, partitions: List[str]):
 import requests
 
 # DATASET_URL = "http://75.101.234.38:8111/latest"
-DATASET_URL = "https://datasets.dippy-bittensor-subnet.com/dataset"
+# DATASET_URL = "https://datasets.dippy-bittensor-subnet.com/dataset"
+
+DATASET_URL = "https://conversations.dippy-bittensor-subnet.com/dataset"
+
 # DATASET_API_KEY = os.environ.get("DATASET_API_KEY", "dippy")
 DATASET_API_KEY = "someVerysecretKey"
 
 
 def get_latest_from_set():
-    epoch_date = "20241015"
-    current_date = "20241109"
-    url = f"{DATASET_URL}?epoch_date={epoch_date}&current_date={current_date}"
+    start_date = "20250101"
+    end_date = "20250113" # Which is the current date
+    url = f"{DATASET_URL}?start_date={start_date}&end_date={end_date}"
    
     response = requests.get(url, headers = {"validator-hotkey": DATASET_API_KEY, "Authorization": DATASET_API_KEY})
     response.raise_for_status()  # Raise an error for bad responses
-    data = response.json().get("data", [])
+    data = response.json().get("all_convos", [])
+
     return data
 
 def get_latest_from_file(filter: str = "both", filename: str = "/tmp/dataset.json"):
@@ -125,8 +129,12 @@ class StreamedSyntheticDataset(Dataset):
         for data_point in data:
             system_prompt = data_point["system_prompt"]
             # voice_description = data_point["voice_description"]
-            voice_description = "melodious"
+          
+            # TEMP REMOVE AND REPLACE WITH ACTUAL ONE API IS READY?
+            voice_description = "Eric's voice is deep and resonant, providing a commanding presence in his speech. A **male voice with an American accent**, his **very low-pitched voice** is captured with crisp clarity. His tone is **authoritative yet slightly monotone**, emphasizing his strong and steady delivery."
+            
             messages = [{"role": "system", "content": system_prompt}]
+            
             # get index of the last message from the chatbot
             input_len_so_far = 0
             limit_reached = False

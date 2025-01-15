@@ -1,3 +1,4 @@
+import random
 import logging
 
 import numpy as np
@@ -10,6 +11,8 @@ logger = logging.getLogger(__name__)  # Create a logger for this module
 
 
 def load_dataset():
+    NUMBER_OF_SAMPLES = 20
+
 
     print("Sampling dataset")
     try:
@@ -17,7 +20,24 @@ def load_dataset():
             max_input_len=MAX_SEQ_LEN - MAX_GENERATION_LENGTH - 200,
             mock=True,
         )
-        sampled_data = dataset.sample_dataset(EVALUATION_DATASET_SAMPLE_SIZE, dummy=True)
+        
+        #sampled_data = dataset.sample_dataset(EVALUATION_DATASET_SAMPLE_SIZE, dummy=True)
+        #sampled_data = dataset.__getitem__(5)
+        sampled_data = []
+        for _ in range(NUMBER_OF_SAMPLES):
+
+            _CURRENT_EVALUATION_DATASET_SAMPLE_SIZE = len(dataset.dataset)
+
+            random_index = random.randint(0, _CURRENT_EVALUATION_DATASET_SAMPLE_SIZE  - 1)  # Generate a random index
+
+            sample = dataset.__getitem__(random_index)  # Get the sample using __getitem__
+
+            response, query, description = sample
+    
+            # Append the sample tuple to the list
+            sampled_data.append((response, query, description))
+
+    
         """
         shape of sampled_data: a list structured like the following:
         [
