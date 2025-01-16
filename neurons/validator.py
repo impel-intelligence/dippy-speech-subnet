@@ -663,7 +663,7 @@ class Validator:
             return success
 
         try:
-            bt.logging.warning(f"Running Validator Version - V3.5.0")
+            bt.logging.warning(f"Running Validator Version - V5.0.0")
             bt.logging.warning(f"Running step with ttl {ttl}")
             step_success = await asyncio.wait_for(_try_run_step(), ttl)
             bt.logging.warning("Finished running step.")
@@ -968,7 +968,7 @@ class Validator:
             current_time = dt.datetime.now(dt.timezone.utc)
             bt.logging.success(f"Running step at {current_time.strftime('%H:%M')}")
 
-            success = await self.try_run_step(ttl=60 * 20)
+            success = await self.try_run_step(ttl=60 * 40)
             weights_set_success = False
             self.global_step += 1
 
