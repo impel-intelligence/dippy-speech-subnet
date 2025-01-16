@@ -92,14 +92,14 @@ def compute_wins(
             score_i = miner_registry[uid_i].total_score
             score_j = miner_registry[uid_j].total_score
             if block_i < NEW_EPOCH_BLOCK:
-                submission_diff = (NEW_EPOCH_BLOCK - block_i)
+                submission_diff = (NEW_EPOCH_BLOCK - block_i) * 10
                 # Linear penalty from 1 to 0 based on submission_diff
                 # When submission_diff is 0 (submitted at NEW_EPOCH_BLOCK), penalty is 1 (no reduction)
                 # When submission_diff is NEW_EPOCH_BLOCK (submitted at block 0), penalty is 0 (max reduction)
                 penalty = 1 - (submission_diff / NEW_EPOCH_BLOCK)
                 score_i *= penalty
             if block_j < NEW_EPOCH_BLOCK:
-                submission_diff = (NEW_EPOCH_BLOCK - block_j)
+                submission_diff = (NEW_EPOCH_BLOCK - block_j) * 10
                 penalty = 1 - (submission_diff / NEW_EPOCH_BLOCK)
                 score_j *= 1
 
