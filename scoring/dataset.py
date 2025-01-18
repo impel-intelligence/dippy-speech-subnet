@@ -25,25 +25,33 @@ def prepare_from_hf_dataset(dataset_name: str, partitions: List[str]):
 
 import requests
 
-# DATASET_URL = "http://75.101.234.38:8111/latest"
-# DATASET_URL = "https://datasets.dippy-bittensor-subnet.com/dataset"
 
-DATASET_URL = "https://conversations.dippy-bittensor-subnet.com/dataset"
+DATASET_URL = "https://voices.dippy-bittensor-subnet.com/dataset"
 
 # DATASET_API_KEY = os.environ.get("DATASET_API_KEY", "dippy")
 DATASET_API_KEY = "someVerysecretKey"
 
+# Authentication
+VOICES_URL = "https://voices.dippy-bittensor-subnet.com"
+USERNAME = os.getenv("VASPI_USERNAME")
+PASSWORD = os.getenv("VASPI_PASSWORD")
+
 
 def get_latest_from_set():
     start_date = "20250101"
-    end_date = "20250113" # Which is the current date
-    url = f"{DATASET_URL}?start_date={start_date}&end_date={end_date}"
+    end_date = "20250113"
+    url = f"{VOICES_URL}/dataset?start_date={start_date}&end_date={end_date}"
    
-    response = requests.get(url, headers = {"validator-hotkey": DATASET_API_KEY, "Authorization": DATASET_API_KEY})
+    # Send GET request with Basic Authentication
+    response = requests.get(
+        url,
+        auth=(USERNAME, PASSWORD)  # Basic Authentication
+    )
     response.raise_for_status()  # Raise an error for bad responses
     data = response.json().get("all_convos", [])
 
     return data
+
 
 def get_latest_from_file(filter: str = "both", filename: str = "/tmp/dataset.json"):
     import json
