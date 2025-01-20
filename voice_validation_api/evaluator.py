@@ -94,6 +94,9 @@ class Evaluator:
             "VLLM_WORKER_MULTIPROC_METHOD": "_",
             "PYTORCH_CUDA_ALLOC_CONF": "_",
             "DATASET_API_KEY": os.environ.get("DATASET_API_KEY"),
+            "VASPI_USERNAME": os.environ.get("VASPI_USERNAME"),
+            "VASPI_PASSWORD": os.environ.get("VASPI_PASSWORD"),
+            
         }
         self.trace = trace
 
