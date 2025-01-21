@@ -45,7 +45,7 @@ def get_latest_from_set():
     # Send GET request with Basic Authentication
     response = requests.get(
         url,
-        auth=(USERNAME, PASSWORD)  # Basic Authentication
+        # auth=(USERNAME, PASSWORD)  # Basic Authentication
     )
     response.raise_for_status()  # Raise an error for bad responses
     data = response.json().get("all_convos", [])
