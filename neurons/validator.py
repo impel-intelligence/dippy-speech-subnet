@@ -59,7 +59,7 @@ from utilities.validation_utils import regenerate_hash
 os.environ["TOKENIZERS_PARALLELISM"] = "false"
 INVALID_BLOCK_START = 4200000
 INVALID_BLOCK_END = 4200000
-NEW_EPOCH_BLOCK = 4723456
+NEW_EPOCH_BLOCK = 4799345
 
 
 def compute_wins(
@@ -92,16 +92,9 @@ def compute_wins(
             score_i = miner_registry[uid_i].total_score
             score_j = miner_registry[uid_j].total_score
             if block_i < NEW_EPOCH_BLOCK:
-                submission_diff = (NEW_EPOCH_BLOCK - block_i) * 0.00001
-                # Linear penalty from 1 to 0 based on submission_diff
-                # When submission_diff is 0 (submitted at NEW_EPOCH_BLOCK), penalty is 1 (no reduction)
-                # When submission_diff is NEW_EPOCH_BLOCK (submitted at block 0), penalty is 0 (max reduction)
-                penalty = 1 - (submission_diff / NEW_EPOCH_BLOCK)
-                score_i *= penalty
+                score_i = 0
             if block_j < NEW_EPOCH_BLOCK:
-                submission_diff = (NEW_EPOCH_BLOCK - block_j) * 0.00001
-                penalty = 1 - (submission_diff / NEW_EPOCH_BLOCK)
-                score_j *= 1
+                score_j = 0
 
             wins[uid_i] += 1 if iswin(score_i, score_j, block_i, block_j) else 0
             total_matches += 1
