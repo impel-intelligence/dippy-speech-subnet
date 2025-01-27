@@ -217,17 +217,13 @@ class ModelQueue:
         for uid in all_uids:
             hotkey = hotkeys[uid]
             try:
-                metadata = bt.core.extrinsics.serving.get_metadata(self.subtensor, self.netuid, hotkey)
-                if not metadata:
-                    raise RuntimeError(f"no metadata exists for {uid}")
-
-                commitment = metadata["info"]["fields"][0]
-                hex_data = commitment[list(commitment.keys())[0]][2:]
-                chain_str = bytes.fromhex(hex_data).decode()
+                if hotkey not in commitments:
+                    raise Exception(f"No commitment found for hotkey {hotkey}")
+                chain_str = commitments[hotkey]["chain_str"]
                 model_id = ModelId.from_compressed_str(chain_str)
                 metadata = {
                     "model_id": model_id,
-                    "block": metadata["block"],
+                    "block": commitments[hotkey]["block"],
                 }
                 miner_info_map[uid] = MinerInfo(hotkey=hotkey, metadata=metadata)
             except Exception as e:
