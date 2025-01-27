@@ -308,12 +308,16 @@ class ModelQueue:
         else:
             validation_endpoint = f"{constants.VALIDATION_SERVER}/minerboard_update"
 
+        self.logger.info(f"Validation endpoint: {validation_endpoint}")
+
         payload = {
             "hash": hash,
             "uid": uid,
             "hotkey": hotkey,
             "block": block,
         }
+
+        self.logger.info(f"Payload: {payload}")
 
         headers = {
             "Git-Commit": str(local_metadata.commit),
@@ -325,12 +329,15 @@ class ModelQueue:
         if os.environ.get("ADMIN_KEY", None) not in [None, ""]:
             headers["admin-key"] = os.environ["ADMIN_KEY"]
 
+        self.logger.info(f"Headers: {headers}")
+
         try:
             async with aiohttp.ClientSession() as session:
                 async with session.post(validation_endpoint, json=payload, headers=headers) as response:
                     response.raise_for_status()
+    
         except Exception as e:
-            print(e)
+            self.logger.error(f"Exception occurred: {e}", exc_info=True)
 
 
 if __name__ == "__main__":
