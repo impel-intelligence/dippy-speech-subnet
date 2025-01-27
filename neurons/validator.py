@@ -59,7 +59,7 @@ from utilities.validation_utils import regenerate_hash
 os.environ["TOKENIZERS_PARALLELISM"] = "false"
 INVALID_BLOCK_START = 4200000
 INVALID_BLOCK_END = 4200000
-NEW_EPOCH_BLOCK = 4812345
+NEW_EPOCH_BLOCK = 4799345
 
 
 def compute_wins(
