@@ -188,20 +188,42 @@ class ModelQueue:
 
         # Create mapping of uid -> MinerInfo
         miner_info_map: Dict[int, MinerInfo] = {}
+
+        substrate_client = self.subtensor.substrate
+        all_commitments = substrate_client.query_map(
+            module="Commitments",
+            storage_function="CommitmentOf",
+            params=[self.config.netuid],
+            block_hash=None,
+        )
+        commitments = {}
+        for key, value in all_commitments:
+            hotkey = key.value
+            commitment_info = value.value.get("info", {})
+            fields = commitment_info.get("fields", [])
+            if not fields or not isinstance(fields[0], dict):
+                continue
+            field_value = next(iter(fields[0].values()))
+            if field_value.startswith("0x"):
+                field_value = field_value[2:]
+            try:
+                chain_str = bytes.fromhex(field_value).decode("utf-8").strip()
+                commitments[str(hotkey)] = {"block": value["block"].value, "chain_str": chain_str}
+            except Exception as e:
+                self.logger.error(f"Failed to decode commitment for hotkey {hotkey}: {e}")
+                continue
+
+                
         for uid in all_uids:
             hotkey = hotkeys[uid]
             try:
-                metadata = bt.core.extrinsics.serving.get_metadata(self.subtensor, self.netuid, hotkey)
-                if not metadata:
-                    raise RuntimeError(f"no metadata exists for {uid}")
-
-                commitment = metadata["info"]["fields"][0]
-                hex_data = commitment[list(commitment.keys())[0]][2:]
-                chain_str = bytes.fromhex(hex_data).decode()
+                if hotkey not in commitments:
+                    raise Exception(f"No commitment found for hotkey {hotkey}")
+                chain_str = commitments[hotkey]["chain_str"]
                 model_id = ModelId.from_compressed_str(chain_str)
                 metadata = {
                     "model_id": model_id,
-                    "block": metadata["block"],
+                    "block": commitments[hotkey]["block"],
                 }
                 miner_info_map[uid] = MinerInfo(hotkey=hotkey, metadata=metadata)
             except Exception as e:
