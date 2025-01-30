@@ -1,9 +1,7 @@
 name: Push Official NGINX Image to GCP Artifact Registry
 
 on:
-  push:
-    branches:
-      - main  # Trigger on push to the main branch (you can change this)
+  workflow_dispatch:  # Allows manual triggering of the workflow
 
 jobs:
   push-nginx:
