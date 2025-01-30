@@ -1,4 +1,4 @@
-name: Push Custom Python Image to GCP Artifact Registry
+name: Validation API SN58
 on:
   workflow_dispatch:  # Allows manual triggering of the workflow
 jobs:
