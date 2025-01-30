@@ -42,7 +42,7 @@ jobs:
             --build-arg DATASET_API_KEY=${{ secrets.DATASET_API_KEY }} \
             --build-arg POSTGRES_URL=${{ secrets.POSTGRES_URL }} \
             -t us-east1-docker.pkg.dev/impel-dippy-dev/dippy-backend-artifact-repository/sn58-validation-api-v2:latest \
-            -f vapi.Dockerfile .
+            -f vapi_actions.Dockerfile .
 
       # Push the custom Python Docker image to GCP Artifact Registry
       - name: Push Docker Image

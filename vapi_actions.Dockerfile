@@ -52,7 +52,7 @@ COPY common ./common
 COPY constants ./constants
 
 # Required for self-installing module
-COPY .env .
+# COPY .env .
 COPY README.md .
 COPY pyproject.toml .
 COPY .git .git
