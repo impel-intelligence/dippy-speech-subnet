@@ -2,7 +2,7 @@ name: Validation API SN58
 on:
   workflow_dispatch:  # Allows manual triggering of the workflow
 jobs:
-  push-python-image:
+  push-image:
     runs-on: ubuntu-latest
     steps:
       # Checkout the repository (required for building the Docker image)
