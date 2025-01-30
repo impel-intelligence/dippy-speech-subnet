@@ -40,9 +40,9 @@ jobs:
       # Tag the NGINX image for GCP Artifact Registry
       - name: Tag NGINX image
         run: |
-          docker tag nginx:alpine us-east1-docker.pkg.dev/my-gcp-project/dippy-backend-artifact-repository/sn58-validation-api-v2:latest
+          docker tag nginx:alpine us-east1-docker.pkg.dev/impel-dippy-dev/dippy-backend-artifact-repository/sn58-validation-api-v2:latest
 
       # Push the tagged image to GCP Artifact Registry
       - name: Push NGINX image
         run: |
-          docker push us-east1-docker.pkg.dev/my-gcp-project/dippy-backend-artifact-repository/sn58-validation-api-v2:latest
+          docker push us-east1-docker.pkg.dev/impel-dippy-dev/dippy-backend-artifact-repository/sn58-validation-api-v2:latest
