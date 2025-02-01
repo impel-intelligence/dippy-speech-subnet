@@ -30,7 +30,7 @@ class WorkerQueue:
         0: "0",  # Queue 0 uses GPU 0
         1: "1",  # Queue 1 uses GPU 1
         2: "2",  # Queue 2 uses GPU 2
-        # 3: "3",  # Queue 3 uses GPU 3
+        3: "3",  # Queue 3 uses GPU 3
     }
 
     def __init__(self, image_name: str = "speech:latest", stub: bool = False):
