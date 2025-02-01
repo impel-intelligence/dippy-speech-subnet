@@ -2,6 +2,7 @@ import logging
 import os
 import tempfile
 import uuid
+from tenacity import retry, wait_exponential, stop_after_attempt, retry_if_exception_type
 
 import joblib
 import librosa
@@ -210,7 +211,13 @@ def calculate_wer(reference: str, hypothesis: str, apply_preprocessing: bool = T
 
     return error_rate
 
-
+    
+@retry(
+    wait=wait_exponential(multiplier=15, min=15, max=135),  # Exponential backoff: start with 15s, max 135s
+    stop=stop_after_attempt(4),  # Stop after 3 attempts
+    retry=retry_if_exception_type(Exception),  # Retry on any exception
+    reraise=True  # Re-raise the exception if all retries fail
+)
 def load_whisper_model(device):
     try:
         whisper_model_name = "openai/whisper-tiny"
@@ -220,9 +227,15 @@ def load_whisper_model(device):
         return processor, whisper_model
     except Exception as e:
         logger.error(f"Failed to load Whisper Tiny model: {e}", exc_info=True)
-        raise RuntimeError("Whisper model loading failed.")
+        raise RuntimeError(f"Failed to load Whisper Tiny model: {e}")
 
 
+@retry(
+    wait=wait_exponential(multiplier=15, min=15, max=135),  # Exponential backoff: start with 15s, max 135s
+    stop=stop_after_attempt(4),  # Stop after 3 attempts
+    retry=retry_if_exception_type(Exception),  # Retry on any exception
+    reraise=True,  # Re-raise the exception if all retries fail
+)
 def load_parler_model(repo_namespace, repo_name, device):
     model_name = f"{repo_namespace}/{repo_name}"
     try:
@@ -232,7 +245,7 @@ def load_parler_model(repo_namespace, repo_name, device):
         return model, tokenizer
     except Exception as e:
         logger.error(f"Failed to load Parler TTS model or tokenizer: {e}", exc_info=True)
-        raise RuntimeError(f"Parler TTS model or tokenizer loading failed : {e}")
+        raise RuntimeError(f"Parler TTS model or tokenizer loading failed: {e}")
 
 
 def generate_audio(speaker, prompt_text, sample_number, model, tokenizer, device, tempdir):
