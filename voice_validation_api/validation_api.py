@@ -105,6 +105,7 @@ class ValidationAPI:
         self.router.add_api_route("/recent_entries", self.get_recent_entries, methods=["GET"])
         self.router.add_api_route("/model_submission_details", self.get_model_submission_details, methods=["GET"])
         self.router.add_api_route("/hc", self.hc, methods=["GET"])
+        self.router.add_api_route("/", self.health, methods=["GET"])
         self.router.add_api_route("/routes", self.get_routes, methods=["GET"])
         
         # Include router in app
@@ -298,6 +299,10 @@ class ValidationAPI:
         inserted = self.db_client.insert(new_entry_dict, request.hash)
         status = StatusEnum.QUEUED if inserted else StatusEnum.FAILED 
         return {"status":status}
+
+    def health(self):
+        """GET / - Health check endpoint for kubernetes"""
+        return {"g": True, "k": False}
 
     def hc(self):
         """GET /hc - Health check endpoint"""
