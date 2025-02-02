@@ -113,7 +113,7 @@ class ValidationAPI:
 
     def repository_exists(self, repo_id: str) -> bool:
         # Retry 3 times while checking repo availability
-        for retried in rang(3):
+        for retried in range(3):
             try:
                 self.hf_api.repo_info(repo_id)
                 return True
