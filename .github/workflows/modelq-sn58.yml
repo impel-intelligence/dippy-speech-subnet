@@ -47,4 +47,4 @@ jobs:
       # Push the custom Python Docker image to GCP Artifact Registry
       - name: Push Docker Image
         run: |
-            docker push us-east1-docker.pkg.dev/bittensor-449517/bittensor-artifacts/modelq-image:latest
+            docker push us-east1-docker.pkg.dev/bittensor-449517/bittensor-artifacts/sn58-modelq-v2:latest
