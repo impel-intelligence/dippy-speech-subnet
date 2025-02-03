@@ -42,7 +42,7 @@ jobs:
             --build-arg DATASET_API_KEY=${{ secrets.DATASET_API_KEY }} \
             --build-arg POSTGRES_URL=${{ secrets.POSTGRES_URL }} \
             -t us-east1-docker.pkg.dev/bittensor-449517/bittensor-artifacts/sn58-modelq-v2:latest \
-            -f modelq-image .
+            -f modelq.Dockerfile .
 
       # Push the custom Python Docker image to GCP Artifact Registry
       - name: Push Docker Image
