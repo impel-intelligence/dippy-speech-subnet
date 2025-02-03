@@ -412,6 +412,7 @@ class Persistence:
                         DO UPDATE SET
                             uid = EXCLUDED.uid,
                             hotkey = EXCLUDED.hotkey, 
+                            hash = EXCLUDED.hash,
                             block = EXCLUDED.block
                         RETURNING *
                     """,
