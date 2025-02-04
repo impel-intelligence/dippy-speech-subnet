@@ -41,7 +41,7 @@ jobs:
             --build-arg OPENAI_API_KEY=${{ secrets.OPENAI_API_KEY }} \
             --build-arg DATASET_API_KEY=${{ secrets.DATASET_API_KEY }} \
             --build-arg POSTGRES_URL=${{ secrets.POSTGRES_URL }} \
-            --build-arg VALIDATION_API_SN58=${{ secrets.VALIDATION_API_58 }} \
+            --build-arg VALIDATION_API_SN58=${{ secrets.VALIDATION_API_SN58 }} \
             -t us-east1-docker.pkg.dev/bittensor-449517/bittensor-artifacts/sn58-modelq-v2:latest \
             -f modelq.Dockerfile .
 
