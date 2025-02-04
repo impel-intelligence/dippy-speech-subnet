@@ -1,5 +1,10 @@
 FROM pytorch/pytorch:2.5.1-cuda12.4-cudnn9-devel
 
+# Define build argument for Hugging Face token
+ARG HUGGINGFACE_TOKEN_PRIME
+
+# Optionally, set environment variable (if needed later)
+ENV HF_TOKEN_PRIME=${HUGGINGFACE_TOKEN_PRME}
 
 RUN apt-get update && \
     apt-get install -y wget=1.* build-essential libgl1 curl git tree && \
@@ -52,6 +57,10 @@ COPY .git/ ./.git/
 
 # Install the package in editable mode
 RUN uv pip install --system -e .
+
+RUN pip install huggingface_hub
+
+RUN huggingface-cli login --token ${HUGGINGFACE_TOKEN_PRIME}
 
 # Copy entrypoint script
 COPY scoring/entrypoint.py ./
