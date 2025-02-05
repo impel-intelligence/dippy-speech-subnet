@@ -20,7 +20,7 @@ class CompetitionParameters:
 
 # VALIDATION_SERVER = "http://3.14.83.79:8777"
 
-VALIDATION_SERVER  = os.environ["VALIDATION_API_SN58"]
+VALIDATION_SERVER  = "https://sn58-validation.dippy-bittensor-subnet.com/"
 
 # The uid for this subnet.
 SUBNET_UID = 58
