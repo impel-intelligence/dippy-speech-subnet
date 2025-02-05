@@ -306,7 +306,7 @@ class ValidationAPI:
 
     def hc(self):
         """GET /hc - Health check endpoint"""
-        return {"g": True, "k": False}
+        return {"g": True, "k": False, "info":"Subnet 58 Validation API", "id":"sn58valapi"}
 
     def get_routes(self):
         """GET /routes - Endpoint for retrieving all available routes"""
