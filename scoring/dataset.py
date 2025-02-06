@@ -38,14 +38,13 @@ PASSWORD = os.getenv("VASPI_PASSWORD")
 
 
 def get_latest_from_set():
-    start_date = "20250101"
-    end_date = "20250113"
-    url = f"{VOICES_URL}/dataset?start_date={start_date}&end_date={end_date}"
+    start_date = "20250201"
+    end_date = "20250204"
+    url = f"{VOICES_URL}/voices?start_date={start_date}&end_date={end_date}"
    
     # Send GET request with Basic Authentication
     response = requests.get(
         url,
-        # auth=(USERNAME, PASSWORD)  # Basic Authentication
     )
     response.raise_for_status()  # Raise an error for bad responses
     data = response.json().get("all_convos", [])
