@@ -15,6 +15,7 @@ from modelscope.pipelines import pipeline
 from modelscope.utils.constant import Tasks
 from parler_tts import ParlerTTSForConditionalGeneration
 from transformers import AutoTokenizer, WhisperForConditionalGeneration, WhisperProcessor
+from huggingface_hub import login
 
 logger = logging.getLogger(__name__)
 
@@ -305,6 +306,8 @@ def transcribe_audio(audio_path, processor, whisper_model, device):
 def scoring_workflow(repo_namespace, repo_name, text, voice_description):
     DISCRIMINATOR_FILE_NAME = "discriminator_v1.0.pth"
     MODEL_PCA_FILE_NAME = "discriminator_pca_v1.0.pkl"
+
+    login(token=os.environ.get("HUGGINGFACE_TOKEN_PRIME"))
 
     device = "cuda:0" if torch.cuda.is_available() else "cpu"
     logger.info(f"Device selected for computation: {device}")
