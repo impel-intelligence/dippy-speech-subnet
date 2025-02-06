@@ -307,7 +307,7 @@ def scoring_workflow(repo_namespace, repo_name, text, voice_description):
     DISCRIMINATOR_FILE_NAME = "discriminator_v1.0.pth"
     MODEL_PCA_FILE_NAME = "discriminator_pca_v1.0.pkl"
 
-    login(token=os.environ.get("HUGGINGFACE_TOKEN_PRIME"))
+    # login(token=os.environ.get("HUGGINGFACE_TOKEN_PRIME"))
 
     device = "cuda:0" if torch.cuda.is_available() else "cpu"
     logger.info(f"Device selected for computation: {device}")
