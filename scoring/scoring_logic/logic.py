@@ -307,7 +307,15 @@ def scoring_workflow(repo_namespace, repo_name, text, voice_description):
     DISCRIMINATOR_FILE_NAME = "discriminator_v1.0.pth"
     MODEL_PCA_FILE_NAME = "discriminator_pca_v1.0.pkl"
 
-    # login(token=os.environ.get("HUGGINGFACE_TOKEN_PRIME"))
+    try:
+        token = os.environ.get("HUGGINGFACE_TOKEN_PRIME")
+        if token is None:
+            raise ValueError("HUGGINGFACE_TOKEN_PRIME is not set in the environment.")
+        
+        login(token=token)
+    except Exception as e:
+        # Handle the exception (e.g., log the error, notify the user, etc.)
+        raise RuntimeError(f"An error occurred during hf login: {e}")
 
     device = "cuda:0" if torch.cuda.is_available() else "cpu"
     logger.info(f"Device selected for computation: {device}")
