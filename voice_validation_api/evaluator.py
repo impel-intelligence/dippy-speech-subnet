@@ -96,7 +96,7 @@ class Evaluator:
             "DATASET_API_KEY": os.environ.get("DATASET_API_KEY"),
             "VASPI_USERNAME": os.environ.get("VASPI_USERNAME"),
             "VASPI_PASSWORD": os.environ.get("VASPI_PASSWORD"),
-            
+            "HUGGINGFACE_TOKEN_PRIME": os.environ.get("HUGGINGFACE_TOKEN_PRIME"),
         }
         self.trace = trace
 
