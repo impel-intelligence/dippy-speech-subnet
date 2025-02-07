@@ -4,6 +4,10 @@ import tempfile
 import uuid
 import httpx
 
+import gc
+import torch
+import ray
+import torch.distributed as dist
 
 import joblib
 import librosa
@@ -428,5 +432,23 @@ def scoring_workflow(repo_namespace, repo_name, text, voice_description):
     except Exception as e:
         logger.error(f"Failed to calculate human similarity score: {e}", exc_info=True)
         raise RuntimeError(f"Human similarity score calculation failed.{e}")
+    
+
+    del model
+    del tokenizer
+
+    # Force garbage collection before clearing CUDA cache
+    gc.collect()
+    torch.cuda.reset_peak_memory_stats()
+    torch.cuda.empty_cache()
+
+    # Shut down Ray if it's running
+    if ray.is_initialized():
+        ray.shutdown()
+
+    # Destroy process group if initialized
+    if dist.is_initialized():
+        dist.destroy_process_group()
+
 
     return (score, wer_score)
