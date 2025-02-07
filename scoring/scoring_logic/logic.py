@@ -2,6 +2,8 @@ import logging
 import os
 import tempfile
 import uuid
+import httpx
+
 
 import joblib
 import librosa
@@ -102,6 +104,7 @@ SPEAKERS = [
     },
 ]
 
+TRANSCRIPTION_URL='http://3.144.101.19:8010/v1/audio/transcriptions'
 
 class EmotionMLPRegression(nn.Module):
     def __init__(self, input_size=200, hidden_size=512, intermediate_size=256, dropout_prob=0.07):
@@ -212,16 +215,16 @@ def calculate_wer(reference: str, hypothesis: str, apply_preprocessing: bool = T
     return error_rate
 
 
-def load_whisper_model(device):
-    try:
-        whisper_model_name = "openai/whisper-tiny"
-        processor = WhisperProcessor.from_pretrained(whisper_model_name)
-        whisper_model = WhisperForConditionalGeneration.from_pretrained(whisper_model_name).to(device)
-        logger.info("Whisper Tiny model loaded successfully.")
-        return processor, whisper_model
-    except Exception as e:
-        logger.error(f"Failed to load Whisper Tiny model: {e}", exc_info=True)
-        raise RuntimeError("Whisper model loading failed.")
+# def load_whisper_model(device):
+#     try:
+#         whisper_model_name = "openai/whisper-tiny"
+#         processor = WhisperProcessor.from_pretrained(whisper_model_name)
+#         whisper_model = WhisperForConditionalGeneration.from_pretrained(whisper_model_name).to(device)
+#         logger.info("Whisper Tiny model loaded successfully.")
+#         return processor, whisper_model
+#     except Exception as e:
+#         logger.error(f"Failed to load Whisper Tiny model: {e}", exc_info=True)
+#         raise RuntimeError("Whisper model loading failed.")
 
 
 def load_parler_model(repo_namespace, repo_name, device):
@@ -279,33 +282,94 @@ def process_emotion(audio_path):
         raise RuntimeError("Emotion2Vector processing failed.")
 
 
-def transcribe_audio(audio_path, processor, whisper_model, device):
+# def transcribe_audio(audio_path, processor, whisper_model, device):
+#     try:
+#         audio, sample_rate = sf.read(audio_path)
+
+#         # Resample the audio to 16,000 Hz if necessary
+#         if sample_rate != 16000:
+#             audio = librosa.resample(audio, orig_sr=sample_rate, target_sr=16000)
+#             sample_rate = 16000
+
+#         # Clamp audio to avoid clipping issues
+#         audio = np.clip(audio, -1.0, 1.0)
+
+#         inputs = processor(audio, sampling_rate=sample_rate, return_tensors="pt").to(device)
+
+#         with torch.no_grad():
+#             predicted_ids = whisper_model.generate(inputs.input_features)
+#         transcription = processor.batch_decode(predicted_ids, skip_special_tokens=True)[0]
+#         logger.info(f"Transcription: {transcription}")
+#         return transcription
+#     except Exception as e:
+#         logger.error(f"Error during transcription with Whisper Tiny: {e}", exc_info=True)
+#         raise RuntimeError(f"Audio transcription failed: {e}")
+
+
+def transcribe_audio(audio_path, transcription_url=TRANSCRIPTION_URL):
+    """
+    Transcribes an audio file by sending it to a remote transcription service via an HTTP POST request.
+
+    Args:
+        audio_path (str): Path to the audio file to be transcribed.
+        transcription_url (str): URL of the transcription service endpoint.
+
+    Returns:
+        str: The transcription of the audio file.
+
+    Raises:
+        RuntimeError: If the transcription fails due to connection issues or other errors.
+    """
     try:
-        audio, sample_rate = sf.read(audio_path)
+        # Open the audio file and send it in the POST request
+        with open(audio_path, 'rb') as f:
+            files = {'file': (audio_path, f)}
+            response = httpx.post(transcription_url, files=files)
 
-        # Resample the audio to 16,000 Hz if necessary
-        if sample_rate != 16000:
-            audio = librosa.resample(audio, orig_sr=sample_rate, target_sr=16000)
-            sample_rate = 16000
+        # Check if the request was successful
+        if response.status_code == 200:
+            transcription = response.text.strip()
+            logger.info(f"\nAudio Transcription Response:\n{transcription}")
+            return transcription
+        else:
+            error_message = f"Transcription service returned status code {response.status_code}: {response.text}"
+            logger.info(error_message)
+            raise RuntimeError(error_message)
 
-        # Clamp audio to avoid clipping issues
-        audio = np.clip(audio, -1.0, 1.0)
+    except FileNotFoundError:
+        error_message = f"Error: The file '{audio_path}' was not found."
+        logger.info(error_message)
+        raise RuntimeError(error_message)
 
-        inputs = processor(audio, sampling_rate=sample_rate, return_tensors="pt").to(device)
+    except httpx.ConnectError as e:
+        error_message = f"Failed to connect to transcription endpoint: {e}"
+        logger.info(error_message)
+        raise RuntimeError(error_message)
 
-        with torch.no_grad():
-            predicted_ids = whisper_model.generate(inputs.input_features)
-        transcription = processor.batch_decode(predicted_ids, skip_special_tokens=True)[0]
-        logger.info(f"Transcription: {transcription}")
-        return transcription
     except Exception as e:
-        logger.error(f"Error during transcription with Whisper Tiny: {e}", exc_info=True)
-        raise RuntimeError(f"Audio transcription failed: {e}")
+        error_message = f"An unexpected error occurred during transcription: {e}"
+        logger.info(error_message)
+        raise RuntimeError(error_message)
+
 
 
 def scoring_workflow(repo_namespace, repo_name, text, voice_description):
     DISCRIMINATOR_FILE_NAME = "discriminator_v1.0.pth"
     MODEL_PCA_FILE_NAME = "discriminator_pca_v1.0.pkl"
+
+    try:
+        # Attempt to retrieve the Whisper API token from the environment variables
+        whisper_token = os.environ.get("WHISPER_ENDPOINT")
+        
+        # Check if the token is None (i.e., not set in the environment)
+        if whisper_token is None:
+            raise ValueError("WHISPER_ENDPOINT is not set in the environment.")
+        
+
+    except Exception as e:
+        # Handle the exception (e.g., log the error, notify the user, etc.)
+        raise RuntimeError(f"An error occurred getting wishper endpoint url from env: {e}")
+    
 
     try:
         token = os.environ.get("HUGGINGFACE_TOKEN_PRIME")
@@ -322,7 +386,7 @@ def scoring_workflow(repo_namespace, repo_name, text, voice_description):
 
 
     # Load models
-    processor, whisper_model = load_whisper_model(device)
+    # processor, whisper_model = load_whisper_model(device)
     model, tokenizer = load_parler_model(repo_namespace, repo_name, device)
 
     # Initialize speaker
@@ -340,7 +404,7 @@ def scoring_workflow(repo_namespace, repo_name, text, voice_description):
 
 
         # Transcribe audio
-        transcription = transcribe_audio(audio_path, processor, whisper_model, device)
+        transcription = transcribe_audio(audio_path)
 
 
     # Validate results
