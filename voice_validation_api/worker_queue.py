@@ -174,7 +174,7 @@ def main():
     processes = []
     try:
         logger.info(f"Starting {args.queues} evaluation threads")
-        processes = worker.start_staggered_queues(args.queues, stagger_seconds=2)
+        processes = worker.start_staggered_queues(args.queues, stagger_seconds=15)
         logger.info("Worker queues started successfully")
 
         # Keep the main process running until interrupted

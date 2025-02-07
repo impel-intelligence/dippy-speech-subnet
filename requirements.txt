@@ -13,3 +13,4 @@ loguru
 scipy
 numpy
 jurigged
+tenacity
