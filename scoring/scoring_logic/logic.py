@@ -104,7 +104,7 @@ SPEAKERS = [
     },
 ]
 
-TRANSCRIPTION_URL='http://3.144.101.19:8010/v1/audio/transcriptions'
+TRANSCRIPTION_URL = os.environ.get("WHISPER_ENDPOINT")
 
 class EmotionMLPRegression(nn.Module):
     def __init__(self, input_size=200, hidden_size=512, intermediate_size=256, dropout_prob=0.07):
@@ -359,10 +359,10 @@ def scoring_workflow(repo_namespace, repo_name, text, voice_description):
 
     try:
         # Attempt to retrieve the Whisper API token from the environment variables
-        whisper_token = os.environ.get("WHISPER_ENDPOINT")
+        whisper_endpoint = os.environ.get("WHISPER_ENDPOINT")
         
         # Check if the token is None (i.e., not set in the environment)
-        if whisper_token is None:
+        if whisper_endpoint is None:
             raise ValueError("WHISPER_ENDPOINT is not set in the environment.")
         
 
