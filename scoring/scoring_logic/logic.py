@@ -268,7 +268,7 @@ def generate_audio(speaker, prompt_text, sample_number, model, tokenizer, device
         logger.error(
             f"Failed to generate audio for Sample_{sample_number} with {speaker.get('name', 'Unknown Speaker')}: {e}"
         )
-        raise RuntimeError("Audio generation failed.")
+        raise RuntimeError(f"Audio generation failed. {e}")
 
 
 def process_emotion(audio_path):
