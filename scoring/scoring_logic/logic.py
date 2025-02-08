@@ -433,22 +433,38 @@ def scoring_workflow(repo_namespace, repo_name, text, voice_description):
         logger.error(f"Failed to calculate human similarity score: {e}", exc_info=True)
         raise RuntimeError(f"Human similarity score calculation failed.{e}")
     
+    try:
+        del model
+    except NameError:
+        pass  # Model was not defined
 
-    del model
-    del tokenizer
+    try:
+        del tokenizer
+    except NameError:
+        pass  # Tokenizer was not defined
 
-    # Force garbage collection before clearing CUDA cache
-    gc.collect()
-    torch.cuda.reset_peak_memory_stats()
-    torch.cuda.empty_cache()
+    try:
+        # Force garbage collection before clearing CUDA cache
+        gc.collect()
+        torch.cuda.reset_peak_memory_stats()
+        torch.cuda.empty_cache()
+    except Exception as e:
+        print(f"CUDA cleanup error: {e}")
 
-    # Shut down Ray if it's running
-    if ray.is_initialized():
-        ray.shutdown()
+    try:
+        # Shut down Ray if it's running
+        if ray.is_initialized():
+            ray.shutdown()
+    except Exception as e:
+        print(f"Ray shutdown error: {e}")
 
-    # Destroy process group if initialized
-    if dist.is_initialized():
-        dist.destroy_process_group()
+    try:
+        # Destroy process group if initialized
+        if dist.is_initialized():
+            dist.destroy_process_group()
+    except Exception as e:
+        print(f"Torch distributed cleanup error: {e}")
+
 
 
     return (score, wer_score)
