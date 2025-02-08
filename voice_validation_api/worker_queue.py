@@ -6,6 +6,7 @@ import os
 import random
 import time
 from typing import Any, Dict, List, Optional
+import subprocess
 
 import torch
 from dotenv import load_dotenv
@@ -174,6 +175,7 @@ def main():
     processes = []
     try:
         logger.info(f"Starting {args.queues} evaluation threads")
+        subprocess.run(["docker", "container", "prune", "-f"], check=True)
         processes = worker.start_staggered_queues(args.queues, stagger_seconds=10)
         logger.info("Worker queues started successfully")
 
