@@ -402,6 +402,10 @@ def scoring_workflow(repo_namespace, repo_name, text, voice_description):
         # Generate audio
         audio_path = generate_audio(speaker, text, sample_number, model, tokenizer, device, tmpdirname)
 
+        try:
+            del model
+        except NameError:
+            logger.info("Model was not defined")
 
         # Process emotion
         audio_emo_vector = process_emotion(audio_path)
@@ -436,12 +440,13 @@ def scoring_workflow(repo_namespace, repo_name, text, voice_description):
     try:
         del model
     except NameError:
-        pass  # Model was not defined
+        logger.info("Model was not defined")
 
     try:
         del tokenizer
     except NameError:
-        pass  # Tokenizer was not defined
+        logger.info("Tokenizer was not defined")
+
 
     try:
         # Force garbage collection before clearing CUDA cache
@@ -449,21 +454,21 @@ def scoring_workflow(repo_namespace, repo_name, text, voice_description):
         torch.cuda.reset_peak_memory_stats()
         torch.cuda.empty_cache()
     except Exception as e:
-        print(f"CUDA cleanup error: {e}")
+        logger.info(f"CUDA cleanup error: {e}")
 
     try:
         # Shut down Ray if it's running
         if ray.is_initialized():
             ray.shutdown()
     except Exception as e:
-        print(f"Ray shutdown error: {e}")
+        logger.info(f"Ray shutdown error: {e}")
 
     try:
         # Destroy process group if initialized
         if dist.is_initialized():
             dist.destroy_process_group()
     except Exception as e:
-        print(f"Torch distributed cleanup error: {e}")
+        logger.info(f"Torch distributed cleanup error: {e}")
 
 
 
