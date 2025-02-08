@@ -12,7 +12,7 @@ logger = logging.getLogger(__name__)  # Create a logger for this module
 
 def load_dataset():
     
-    NUMBER_OF_SAMPLES = 2
+    NUMBER_OF_SAMPLES = 5
 
 
     print("Sampling dataset")
@@ -102,6 +102,10 @@ def get_tts_score(request: str) -> dict:
     data = load_dataset()
     # Initialize an empty list to store scores for each processed text.
     scores = []
+
+    # List to collect error messages
+    errors = []  
+
     # Initialize the result dictionary with a default final score of 0.
     result = {"final_score": 0}
     # # Define the weights for scoring, with 'text_length' having a default weight of 1.
@@ -110,10 +114,10 @@ def get_tts_score(request: str) -> dict:
     # Iterate over the data, which contains tuples of text, last user message, and voice description.
     for text, last_user_message, voice_description in data:
         try:
-            # Calculate the base score and wer using the scoring workflow function.
+            # Calculate the base score and WER using the scoring workflow function.
             base_score, wer_score = scoring_workflow(request.repo_namespace, request.repo_name, text, voice_description)
 
-            # Extract float values from each tensor in the 'scores' list for further processing
+            # Extract float values from each tensor in the 'base_score' list for further processing.
             float_values_from_tensors = [score.item() for score in base_score]
 
             # Apply weights to the base score based on text properties.
@@ -122,11 +126,15 @@ def get_tts_score(request: str) -> dict:
             # Append the weighted score to the scores list.
             scores.append(weighted_score)
 
-        # Catch any exceptions that occur during score calculation.
         except Exception as e:
-            # Log the error and update the result dictionary with the error message.
+            # Log the error and collect it for later use.
             logging.info(f"Error calculating score: {e}")
-            result["error"] = str(e)
+            errors.append(str(e))
+
+    # Check if all samples resulted in an error
+    if not scores and errors:
+        combined_error_message = "All samples failed to calculate score. Errors: " + "; ".join(errors)
+        raise Exception(combined_error_message)
 
     # Calculate the average score after the loop completes.
     if scores:
