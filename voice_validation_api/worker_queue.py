@@ -176,7 +176,7 @@ def main():
     try:
         logger.info(f"Starting {args.queues} evaluation threads")
         subprocess.run(["docker", "container", "prune", "-f"], check=True)
-        processes = worker.start_staggered_queues(args.queues, stagger_seconds=10)
+        processes = worker.start_staggered_queues(args.queues, stagger_seconds=5)
         logger.info("Worker queues started successfully")
 
         # Keep the main process running until interrupted
