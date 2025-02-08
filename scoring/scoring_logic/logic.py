@@ -253,7 +253,7 @@ def generate_audio(speaker, prompt_text, sample_number, model, tokenizer, device
         prompt_input_ids = tokenizer(prompt_text, return_tensors="pt").input_ids.to(device)
 
         # Generate audio
-        generation = model.generate(input_ids=input_ids, prompt_input_ids=prompt_input_ids, max_new_tokens=5000)
+        generation = model.generate(input_ids=input_ids, prompt_input_ids=prompt_input_ids, max_new_tokens=10000)
 
         # Convert to numpy array
         audio_arr = generation.cpu().numpy().squeeze()
