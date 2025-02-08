@@ -253,7 +253,7 @@ def generate_audio(speaker, prompt_text, sample_number, model, tokenizer, device
         prompt_input_ids = tokenizer(prompt_text, return_tensors="pt").input_ids.to(device)
 
         # Generate audio
-        generation = model.generate(input_ids=input_ids, prompt_input_ids=prompt_input_ids, max_new_tokens=10000)
+        generation = model.generate(input_ids=input_ids, prompt_input_ids=prompt_input_ids)
 
         # Convert to numpy array
         audio_arr = generation.cpu().numpy().squeeze()
@@ -402,10 +402,6 @@ def scoring_workflow(repo_namespace, repo_name, text, voice_description):
         # Generate audio
         audio_path = generate_audio(speaker, text, sample_number, model, tokenizer, device, tmpdirname)
 
-        try:
-            del model
-        except NameError:
-            logger.info("Model was not defined")
 
         # Process emotion
         audio_emo_vector = process_emotion(audio_path)
