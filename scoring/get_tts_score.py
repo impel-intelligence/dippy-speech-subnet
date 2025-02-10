@@ -11,7 +11,8 @@ logger = logging.getLogger(__name__)  # Create a logger for this module
 
 
 def load_dataset():
-    NUMBER_OF_SAMPLES = 10
+    
+    NUMBER_OF_SAMPLES = 3
 
 
     print("Sampling dataset")

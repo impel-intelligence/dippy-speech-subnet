@@ -4,6 +4,10 @@ import tempfile
 import uuid
 import httpx
 
+import gc
+import torch
+import ray
+import torch.distributed as dist
 
 import joblib
 import librosa
@@ -244,6 +248,16 @@ def generate_audio(speaker, prompt_text, sample_number, model, tokenizer, device
         description = speaker["description"]
         speaker_name = speaker["name"]
 
+        # Tokenize the text and count tokens
+        encoded = tokenizer(prompt_text, return_tensors="pt")
+        token_count = encoded.input_ids.shape[1]
+
+        # Check if the token count exceeds 100
+        if token_count > 100:
+            # Truncate while keeping meaning
+            truncated_tokens = encoded.input_ids[0][:100]  # Keep only first 100 tokens
+            prompt_text = tokenizer.decode(truncated_tokens, skip_special_tokens=True)
+
         # Tokenize the description and prompt
         input_ids = tokenizer(description, return_tensors="pt").input_ids.to(device)
         prompt_input_ids = tokenizer(prompt_text, return_tensors="pt").input_ids.to(device)
@@ -268,7 +282,7 @@ def generate_audio(speaker, prompt_text, sample_number, model, tokenizer, device
         logger.error(
             f"Failed to generate audio for Sample_{sample_number} with {speaker.get('name', 'Unknown Speaker')}: {e}"
         )
-        raise RuntimeError("Audio generation failed.")
+        raise RuntimeError(f"Audio generation failed. {e}")
 
 
 def process_emotion(audio_path):
@@ -428,5 +442,40 @@ def scoring_workflow(repo_namespace, repo_name, text, voice_description):
     except Exception as e:
         logger.error(f"Failed to calculate human similarity score: {e}", exc_info=True)
         raise RuntimeError(f"Human similarity score calculation failed.{e}")
+    
+    try:
+        del model
+    except NameError:
+        logger.info("Model was not defined")
+
+    try:
+        del tokenizer
+    except NameError:
+        logger.info("Tokenizer was not defined")
+
+
+    try:
+        # Force garbage collection before clearing CUDA cache
+        gc.collect()
+        torch.cuda.reset_peak_memory_stats()
+        torch.cuda.empty_cache()
+    except Exception as e:
+        logger.info(f"CUDA cleanup error: {e}")
+
+    try:
+        # Shut down Ray if it's running
+        if ray.is_initialized():
+            ray.shutdown()
+    except Exception as e:
+        logger.info(f"Ray shutdown error: {e}")
+
+    try:
+        # Destroy process group if initialized
+        if dist.is_initialized():
+            dist.destroy_process_group()
+    except Exception as e:
+        logger.info(f"Torch distributed cleanup error: {e}")
+
+
 
     return (score, wer_score)
