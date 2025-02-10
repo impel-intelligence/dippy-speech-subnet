@@ -248,6 +248,16 @@ def generate_audio(speaker, prompt_text, sample_number, model, tokenizer, device
         description = speaker["description"]
         speaker_name = speaker["name"]
 
+        # Tokenize the text and count tokens
+        encoded = tokenizer(prompt_text, return_tensors="pt")
+        token_count = encoded.input_ids.shape[1]
+
+        # Check if the token count exceeds 100
+        if token_count > 100:
+            # Truncate while keeping meaning
+            truncated_tokens = encoded.input_ids[0][:100]  # Keep only first 100 tokens
+            prompt_text = tokenizer.decode(truncated_tokens, skip_special_tokens=True)
+
         # Tokenize the description and prompt
         input_ids = tokenizer(description, return_tensors="pt").input_ids.to(device)
         prompt_input_ids = tokenizer(prompt_text, return_tensors="pt").input_ids.to(device)
