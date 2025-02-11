@@ -240,19 +240,19 @@ class ValidationAPI:
         failure_notes = ""
         repo_id = f"{request.repo_namespace}/{request.repo_name}"
 
-        try:
-            token = os.environ.get("HUGGINGFACE_TOKEN_PRIME")
-            if token is None:
-                raise ValueError("HUGGINGFACE_TOKEN_PRIME is not set in the environment.")
+        # try:
+        #     token = os.environ.get("HUGGINGFACE_TOKEN_PRIME")
+        #     if token is None:
+        #         raise ValueError("HUGGINGFACE_TOKEN_PRIME is not set in the environment.")
             
-            login(token=token)
-        except Exception as e:
-            # Handle the exception (e.g., log the error, notify the user, etc.)
-            raise RuntimeError(f"An error occurred during hf login: {e}")
+        #     login(token=token)
+        # except Exception as e:
+        #     # Handle the exception (e.g., log the error, notify the user, etc.)
+        #     raise RuntimeError(f"An error occurred during hf login: {e}")
         
-        if not self.repository_exists(repo_id):
-            failure_notes = f"Vlaidation API - Huggingface repo not public: {repo_id}"
-            early_failure = True
+        # if not self.repository_exists(repo_id):
+        #     failure_notes = f"Vlaidation API - Huggingface repo not public: {repo_id}"
+        #     early_failure = True
         try:
             retries = self.retries
             current_entry = None
