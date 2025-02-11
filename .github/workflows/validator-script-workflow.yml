@@ -32,8 +32,8 @@ jobs:
       # Set dynamic image tag
       - name: Set Image Tag
         run: |
-          # For a dynamic tag, you might include the commit SHA:
-          IMAGE_TAG="ghcr.io/impel-intelligence/validator_script_imageTest:${{ github.sha }}"
+          # For a dynamic tag, include the commit SHA and ensure the repository name is lowercase:
+          IMAGE_TAG="ghcr.io/impel-intelligence/validator_script_imagetest:${{ github.sha }}"
           echo "IMAGE_TAG=${IMAGE_TAG}" >> $GITHUB_ENV
 
       # Log in to GitHub Container Registry
