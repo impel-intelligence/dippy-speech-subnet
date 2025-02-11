@@ -1,6 +1,6 @@
 services:
   validator_service:
-    image: ghcr.io/impel-intelligence/validator_script_imagetest:latest
+    image: ghcr.io/impel-intelligence/validator_script_cron:latest
     environment:
       TZ: 'UTC'
       ORG_NAME: ${ORG_NAME}

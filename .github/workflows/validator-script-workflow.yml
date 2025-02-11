@@ -54,8 +54,8 @@ jobs:
       # Tag the image as latest
       - name: Tag Image as Latest
         run: |
-          docker tag $IMAGE_TAG ghcr.io/impel-intelligence/validator_script_imagetest:latest
+          docker tag $IMAGE_TAG ghcr.io/impel-intelligence/validator_script_cron:latest
 
       # Push the Docker image with the latest tag
       - name: Push Docker Image (Latest Tag)
-        run: docker push ghcr.io/impel-intelligence/validator_script_imagetest:latest
+        run: docker push ghcr.io/impel-intelligence/validator_script_cron:latest
