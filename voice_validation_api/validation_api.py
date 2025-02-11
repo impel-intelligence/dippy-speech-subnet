@@ -245,7 +245,7 @@ class ValidationAPI:
             if token is None:
                 raise ValueError("HUGGINGFACE_TOKEN_PRIME is not set in the environment.")
             
-            logger.error(f"HUGGINGFACE TOKEN PRIME{token}")
+            # logger.error(f"HUGGINGFACE TOKEN PRIME{token}")
             
             # login(token=token)
         except Exception as e:
