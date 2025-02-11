@@ -547,7 +547,8 @@ class Persistence:
                         FROM miner_entries m
                         LEFT JOIN hash_entries h ON m.hash = h.hash
                         
-                    """
+                    """,
+                    prepare=False
                     )
                     return cur.fetchall()
                 except psycopg.Error as e:
