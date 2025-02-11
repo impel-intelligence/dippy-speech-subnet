@@ -1,39 +1,52 @@
 name: Build and Push Docker Image Validator Script
 
 on:
-  workflow_dispatch: {}
+  workflow_dispatch: # Allows manual triggering of the workflow
 
 jobs:
   build-and-push:
     runs-on: ubuntu-latest
 
     steps:
-    # Check authorized user
-    - name: Check Triggering User
-      run: |
-        AUTHORIZED_USERS=("pravin-X109" "ManavShahWasTaken" "donaldknoller")
-        if [[ ! " ${AUTHORIZED_USERS[@]} " =~ " ${{ github.actor }} " ]]; then
-          echo "::error::Unauthorized user: ${{ github.actor }}"
-          exit 1
-        fi
+      # Check authorized user
+      - name: Check Triggering User
+        run: |
+          AUTHORIZED_USERS=("pravin-X109" "ManavShahWasTaken" "donaldknoller")
+          AUTHORIZED=false
+          for user in "${AUTHORIZED_USERS[@]}"; do
+            if [ "$user" = "${{ github.actor }}" ]; then
+              AUTHORIZED=true
+              break
+            fi
+          done
 
-    # Checkout the repository
-    - name: Checkout code
-      uses: actions/checkout@v3
+          if [ "$AUTHORIZED" = false ]; then
+            echo "::error::Unauthorized user: ${{ github.actor }}"
+            exit 1
+          fi
 
-    # Set dynamic image tag
-    - name: Set Image Tag
-      run: echo "IMAGE_TAG=ghcr.io/impel-intelligence/validator_script_image:latest" >> $GITHUB_ENV
+      # Checkout the repository
+      - name: Checkout code
+        uses: actions/checkout@v3
 
-    # Build the Docker image
-    - name: Build Docker Image
-      run: |
-        docker build -f validator_updater/Dockerfile.validator \
-        -t $IMAGE_TAG .
+      # Set dynamic image tag
+      - name: Set Image Tag
+        run: |
+          # For a dynamic tag, you might include the commit SHA:
+          IMAGE_TAG="ghcr.io/impel-intelligence/validator_script_imageTest:${{ github.sha }}"
+          echo "IMAGE_TAG=${IMAGE_TAG}" >> $GITHUB_ENV
 
-    # Push the Docker image to GHCR
-    - name: Push Docker Image
-      run: |
-        for i in {1..3}; do
-          docker push $IMAGE_TAG && break || sleep 10
-        done
+      # Log in to GitHub Container Registry
+      - name: Log in to GitHub Container Registry
+        run: echo ${{ secrets.GITHUB_TOKEN }} | docker login ghcr.io -u ${{ github.actor }} --password-stdin
+
+      # Build the Docker image
+      - name: Build Docker Image
+        run: |
+          docker build -f validator_updater/Dockerfile.validator \
+            --build-arg ADMIN_KEY=${{ secrets.ADMIN_KEY }} \
+            -t $IMAGE_TAG .
+
+      # Push the Docker image to GHCR
+      - name: Push Docker Image
+        run: docker push $IMAGE_TAG
