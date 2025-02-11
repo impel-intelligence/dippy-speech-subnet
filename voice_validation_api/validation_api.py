@@ -12,6 +12,7 @@ from pydantic import BaseModel
 from fastapi.security import APIKeyHeader
 from starlette.exceptions import HTTPException
 from starlette.status import HTTP_403_FORBIDDEN
+from huggingface_hub import login
 
 from voice_validation_api.pg_persistence import Persistence
 from common.scores import StatusEnum
@@ -238,9 +239,19 @@ class ValidationAPI:
         early_failure = False
         failure_notes = ""
         repo_id = f"{request.repo_namespace}/{request.repo_name}"
+
+        try:
+            token = os.environ.get("HUGGINGFACE_TOKEN_PRIME")
+            if token is None:
+                raise ValueError("HUGGINGFACE_TOKEN_PRIME is not set in the environment.")
+            
+            login(token=token)
+        except Exception as e:
+            # Handle the exception (e.g., log the error, notify the user, etc.)
+            raise RuntimeError(f"An error occurred during hf login: {e}")
         
         if not self.repository_exists(repo_id):
-            failure_notes = f"Huggingface repo not public: {repo_id}"
+            failure_notes = f"Vlaidation API - Huggingface repo not public: {repo_id}"
             early_failure = True
         try:
             retries = self.retries
