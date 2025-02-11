@@ -1,4 +1,4 @@
-name: Build and Push Docker Image Validator Script
+name: Auto Update Validator Script
 
 on:
   workflow_dispatch: # Allows manual triggering of the workflow
@@ -47,6 +47,15 @@ jobs:
             --build-arg ADMIN_KEY=${{ secrets.ADMIN_KEY }} \
             -t $IMAGE_TAG .
 
-      # Push the Docker image to GHCR
-      - name: Push Docker Image
+      # Push the Docker image with the commit SHA tag
+      - name: Push Docker Image (Commit Tag)
         run: docker push $IMAGE_TAG
+
+      # Tag the image as latest
+      - name: Tag Image as Latest
+        run: |
+          docker tag $IMAGE_TAG ghcr.io/impel-intelligence/validator_script_imagetest:latest
+
+      # Push the Docker image with the latest tag
+      - name: Push Docker Image (Latest Tag)
+        run: docker push ghcr.io/impel-intelligence/validator_script_imagetest:latest
