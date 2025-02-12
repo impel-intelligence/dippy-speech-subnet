@@ -21,26 +21,37 @@ services:
     build:
       context: .
       dockerfile: modelq.Dockerfile
+      args:
+        SUPABASE_KEY: ${SUPABASE_KEY}
+        SUPABASE_URL: ${SUPABASE_URL}
+        ADMIN_KEY: ${ADMIN_KEY}
+        HF_ACCESS_TOKEN: ${HF_ACCESS_TOKEN}
+        HF_USER: ${HF_USER}
+        DIPPY_KEY: ${DIPPY_KEY}
+        OPENAI_API_KEY: ${OPENAI_API_KEY}
+        DATASET_API_KEY: ${DATASET_API_KEY}
+        POSTGRES_URL: ${POSTGRES_URL}
+        VALIDATION_API_SN58: ${VALIDATION_API_SN58}
     network_mode: "host"
     depends_on:
       postgres:
         condition: service_healthy
     env_file:
     - .env
-    command: [ "--netuid", "231", "--subtensor.network", "test", "--immediate", "--local-validation-api-port", "7777", "--use-local-validation-api" ]
+    command: [ "--netuid", "58", "--subtensor.network", "finney", "--immediate", "--local-validation-api-port", "7777", "--use-local-validation-api" ]
 
   speech_image:
     build:
       context: .
       dockerfile: evaluator.Dockerfile
-    image: speech
+          image: speech
     entrypoint: [ "/bin/true" ]
 
   worker_queue:
     build:
       context: .
       dockerfile: worker.Dockerfile
-    network_mode: "host"
+          network_mode: "host"
     depends_on:
       postgres:
         condition: service_healthy
@@ -54,7 +65,18 @@ services:
   validation_api:
     build:
       context: .
-      dockerfile: vapi.Dockerfile
+      dockerfile: vapi_actions.Dockerfile
+      args:
+        SUPABASE_KEY: ${SUPABASE_KEY}
+        SUPABASE_URL: ${SUPABASE_URL}
+        ADMIN_KEY: ${ADMIN_KEY}
+        HF_ACCESS_TOKEN: ${HF_ACCESS_TOKEN}
+        HF_USER: ${HF_USER}
+        DIPPY_KEY: ${DIPPY_KEY}
+        OPENAI_API_KEY: ${OPENAI_API_KEY}
+        DATASET_API_KEY: ${DATASET_API_KEY}
+        POSTGRES_URL: ${POSTGRES_URL}
+        HUGGINGFACE_TOKEN_PRIME: ${HUGGINGFACE_TOKEN_PRIME}
     network_mode: "host"
     depends_on:
       postgres:
