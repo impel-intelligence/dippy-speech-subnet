@@ -231,16 +231,16 @@ def calculate_wer(reference: str, hypothesis: str, apply_preprocessing: bool = T
 #         raise RuntimeError("Whisper model loading failed.")
 
 
-def load_parler_model(repo_namespace, repo_name, device):
-    model_name = f"{repo_namespace}/{repo_name}"
-    try:
-        model = ParlerTTSForConditionalGeneration.from_pretrained(model_name).to(device)
-        tokenizer = AutoTokenizer.from_pretrained(model_name)
-        logger.info(f"Parler TTS model '{model_name}' and tokenizer loaded successfully.")
-        return model, tokenizer
-    except Exception as e:
-        logger.error(f"Failed to load Parler TTS model or tokenizer: {e}", exc_info=True)
-        raise RuntimeError(f"Parler TTS model or tokenizer loading failed : {e}")
+# def load_parler_model(repo_namespace, repo_name, device):
+#     model_name = f"{repo_namespace}/{repo_name}"
+#     try:
+#         model = ParlerTTSForConditionalGeneration.from_pretrained(model_name).to(device)
+#         tokenizer = AutoTokenizer.from_pretrained(model_name)
+#         logger.info(f"Parler TTS model '{model_name}' and tokenizer loaded successfully.")
+#         return model, tokenizer
+#     except Exception as e:
+#         logger.error(f"Failed to load Parler TTS model or tokenizer: {e}", exc_info=True)
+#         raise RuntimeError(f"Parler TTS model or tokenizer loading failed : {e}")
 
 
 def generate_audio(speaker, prompt_text, sample_number, model, tokenizer, device, tempdir):
@@ -367,7 +367,7 @@ def transcribe_audio(audio_path, transcription_url=TRANSCRIPTION_URL):
 
 
 
-def scoring_workflow(repo_namespace, repo_name, text, voice_description):
+def scoring_workflow(repo_namespace, repo_name, text, voice_description, device, model, tokenizer):
     DISCRIMINATOR_FILE_NAME = "discriminator_v1.0.pth"
     MODEL_PCA_FILE_NAME = "discriminator_pca_v1.0.pkl"
 
@@ -395,13 +395,13 @@ def scoring_workflow(repo_namespace, repo_name, text, voice_description):
         # Handle the exception (e.g., log the error, notify the user, etc.)
         raise RuntimeError(f"An error occurred during hf login: {e}")
 
-    device = "cuda:0" if torch.cuda.is_available() else "cpu"
-    logger.info(f"Device selected for computation: {device}")
+    # device = "cuda:0" if torch.cuda.is_available() else "cpu"
+    # logger.info(f"Device selected for computation: {device}")
 
 
     # Load models
     # processor, whisper_model = load_whisper_model(device)
-    model, tokenizer = load_parler_model(repo_namespace, repo_name, device)
+    # model, tokenizer = load_parler_model(repo_namespace, repo_name, device)
 
     # Initialize speaker
     speaker_index = 0
