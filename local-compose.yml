@@ -27,7 +27,7 @@ services:
         condition: service_healthy
     env_file:
     - .env
-    command: [ "--netuid", "231", "--subtensor.network", "test", "--immediate", "--local-validation-api-port", "7777", "--use-local-validation-api" ]
+    command: [ "--netuid", "58", "--subtensor.network", "test", "--immediate", "--local-validation-api-port", "7777", "--use-local-validation-api" ]
 
   speech_image:
     build:
