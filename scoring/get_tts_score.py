@@ -13,7 +13,7 @@ import torch.distributed as dist
 
 from parler_tts import ParlerTTSForConditionalGeneration
 from transformers import AutoTokenizer, WhisperForConditionalGeneration, WhisperProcessor
-from huggingface_hub import l
+
 
 logger = logging.getLogger(__name__)  # Create a logger for this module
 
