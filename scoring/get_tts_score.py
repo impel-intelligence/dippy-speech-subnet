@@ -22,7 +22,7 @@ logger = logging.getLogger(__name__)  # Create a logger for this module
 
 def load_dataset():
     
-    NUMBER_OF_SAMPLES = 25
+    NUMBER_OF_SAMPLES = 1
 
 
     print("Sampling dataset")
@@ -112,10 +112,11 @@ def load_parler_model(repo_namespace, repo_name, device):
         logger.error(f"Failed to load Parler TTS model or tokenizer: {e}", exc_info=True)
         raise RuntimeError(f"Parler TTS model or tokenizer loading failed : {e}")
 
-def load_emotion(audio_path):
+def load_emotion():
     try:
         inference_pipeline = pipeline(task=Tasks.emotion_recognition, model="iic/emotion2vec_plus_large")
         logger.info("Emotion2Vector Model initialized successfully.")
+        return inference_pipeline
     except Exception as e:
         logger.error(f"Failed to process audio for Emotion2Vector: {e}", exc_info=True)
         raise RuntimeError("Emotion2Vector processing failed.")
@@ -143,13 +144,13 @@ def get_tts_score(request: str) -> dict:
 
     model, tokenizer = load_parler_model(request.repo_namespace, request.repo_name, device)
 
-    emotion_pipeline = load_emotion()
+    emotion_inference_pipeline = load_emotion()
 
     # Iterate over the data, which contains tuples of text, last user message, and voice description.
     for text, last_user_message, voice_description in data:
         try:
             # Calculate the base score and wer using the scoring workflow function.
-            base_score, wer_score = scoring_workflow(request.repo_namespace, request.repo_name, text, voice_description, device, model, tokenizer)
+            base_score, wer_score = scoring_workflow(request.repo_namespace, request.repo_name, text, voice_description, device, model, tokenizer, emotion_inference_pipeline)
 
             # Extract float values from each tensor in the 'scores' list for further processing
             float_values_from_tensors = [score.item() for score in base_score]
