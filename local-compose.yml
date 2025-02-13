@@ -8,9 +8,9 @@ services:
       PGPASSWORD: vapi
       POSTGRES_PASSWORD: vapi
     volumes:
-    - postgres_data:/var/lib/postgresql/data
+      - postgres_data:/var/lib/postgresql/data
     ports:
-    - '5432:5432'
+      - '5432:5432'
     healthcheck:
       test: [ "CMD-SHELL", "pg_isready -U vapi -d vapi" ]
       interval: 5s
@@ -21,13 +21,32 @@ services:
     build:
       context: .
       dockerfile: modelq.Dockerfile
+      args:
+        SUPABASE_KEY: ${SUPABASE_KEY}
+        SUPABASE_URL: ${SUPABASE_URL}
+        ADMIN_KEY: ${ADMIN_KEY}
+        HF_ACCESS_TOKEN: ${HF_ACCESS_TOKEN}
+        HF_USER: ${HF_USER}
+        DIPPY_KEY: ${DIPPY_KEY}
+        OPENAI_API_KEY: ${OPENAI_API_KEY}
+        DATASET_API_KEY: ${DATASET_API_KEY}
+        POSTGRES_URL: ${POSTGRES_URL}
+        VALIDATION_API_SN58: ${VALIDATION_API_SN58}
     network_mode: "host"
     depends_on:
       postgres:
         condition: service_healthy
     env_file:
-    - .env
-    command: [ "--netuid", "231", "--subtensor.network", "test", "--immediate", "--local-validation-api-port", "7777", "--use-local-validation-api" ]
+      - .env
+    command: 
+      - "--netuid"
+      - "58"
+      - "--subtensor.network"
+      - "finney"
+      - "--immediate"
+      - "--local-validation-api-port"
+      - "7777"
+      - "--use-local-validation-api"
 
   speech_image:
     build:
@@ -45,22 +64,33 @@ services:
       postgres:
         condition: service_healthy
       speech_image:
-        condition: service_started # Ensures speechImage is built first
+        condition: service_started # Ensures speech_image is built first
     env_file:
-    - .env
+      - .env
     volumes:
-    - /var/run/docker.sock:/var/run/docker.sock
+      - /var/run/docker.sock:/var/run/docker.sock
 
   validation_api:
     build:
       context: .
-      dockerfile: vapi.Dockerfile
+      dockerfile: vapi_actions.Dockerfile
+      args:
+        SUPABASE_KEY: ${SUPABASE_KEY}
+        SUPABASE_URL: ${SUPABASE_URL}
+        ADMIN_KEY: ${ADMIN_KEY}
+        HF_ACCESS_TOKEN: ${HF_ACCESS_TOKEN}
+        HF_USER: ${HF_USER}
+        DIPPY_KEY: ${DIPPY_KEY}
+        OPENAI_API_KEY: ${OPENAI_API_KEY}
+        DATASET_API_KEY: ${DATASET_API_KEY}
+        POSTGRES_URL: ${POSTGRES_URL}
+        HUGGINGFACE_TOKEN_PRIME: ${HUGGINGFACE_TOKEN_PRIME}
     network_mode: "host"
     depends_on:
       postgres:
         condition: service_healthy
     env_file:
-    - .env
+      - .env
 
 volumes:
-  postgres_data: null
+  postgres_data:
