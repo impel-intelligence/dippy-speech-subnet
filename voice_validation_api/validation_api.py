@@ -294,7 +294,7 @@ class ValidationAPI:
 
         last_model = self.db_client.last_uploaded_model(request.hotkey)
         # Temp guard against rate limiting
-        if last_model is not None and self.retries > 10:
+        if last_model is not None and self.retries < 3:
             last_model_status = StatusEnum.from_string(last_model["status"])
             if last_model_status != StatusEnum.FAILED:
                 last_block = last_model.get("block", request.block)
