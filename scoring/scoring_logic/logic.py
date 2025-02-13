@@ -296,6 +296,7 @@ def process_emotion(audio_path, emotion_pipeline):
         raise RuntimeError("Emotion2Vector processing failed.")
 
 
+
 # def transcribe_audio(audio_path, processor, whisper_model, device):
 #     try:
 #         audio, sample_rate = sf.read(audio_path)
