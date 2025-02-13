@@ -285,11 +285,11 @@ def generate_audio(speaker, prompt_text, sample_number, model, tokenizer, device
         raise RuntimeError(f"Audio generation failed. {e}")
 
 
-def process_emotion(audio_path):
+def process_emotion(audio_path, emotion_pipeline):
     try:
-        inference_pipeline = pipeline(task=Tasks.emotion_recognition, model="iic/emotion2vec_plus_large")
-        logger.info("Emotion2Vector Model initialized successfully.")
-        rec_result = inference_pipeline(audio_path, granularity="utterance", extract_embedding=True)
+        rec_result = emotion_pipeline(audio_path, granularity="utterance", extract_embedding=True)
+        if not rec_result or "feats" not in rec_result[0]:
+            raise ValueError("Unexpected output format from emotion pipeline")
         return rec_result[0]["feats"]
     except Exception as e:
         logger.error(f"Failed to process audio for Emotion2Vector: {e}", exc_info=True)
@@ -367,7 +367,7 @@ def transcribe_audio(audio_path, transcription_url=TRANSCRIPTION_URL):
 
 
 
-def scoring_workflow(repo_namespace, repo_name, text, voice_description, device, model, tokenizer):
+def scoring_workflow(repo_namespace, repo_name, text, voice_description, device, model, tokenizer, emotion_pipeline):
     DISCRIMINATOR_FILE_NAME = "discriminator_v1.0.pth"
     MODEL_PCA_FILE_NAME = "discriminator_pca_v1.0.pkl"
 
@@ -414,7 +414,7 @@ def scoring_workflow(repo_namespace, repo_name, text, voice_description, device,
 
 
         # Process emotion
-        audio_emo_vector = process_emotion(audio_path)
+        audio_emo_vector = process_emotion(audio_path, emotion_pipeline)
 
 
         # Transcribe audio
