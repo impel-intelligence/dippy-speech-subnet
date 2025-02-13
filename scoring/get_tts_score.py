@@ -103,8 +103,7 @@ def apply_weights(base_score: float, wer: float) -> float:
 def load_parler_model(repo_namespace, repo_name, device):
     model_name = f"{repo_namespace}/{repo_name}"
     try:
-        torch_dtype = torch.bfloat16
-        model = ParlerTTSForConditionalGeneration.from_pretrained(model_name).to(device, dtype=torch_dtype)
+        model = ParlerTTSForConditionalGeneration.from_pretrained(model_name).to(device)
         tokenizer = AutoTokenizer.from_pretrained(model_name)
         logger.info(f"Parler TTS model '{model_name}' and tokenizer loaded successfully.")
         return model, tokenizer
