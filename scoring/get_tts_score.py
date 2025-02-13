@@ -12,7 +12,7 @@ import torch.nn as nn
 import torch.distributed as dist
 
 from parler_tts import ParlerTTSForConditionalGeneration
-from transformers import pipeline
+from modelscope.pipelines import pipeline
 from modelscope.utils.constant import Tasks
 from transformers import AutoTokenizer, WhisperForConditionalGeneration, WhisperProcessor
 
@@ -112,17 +112,15 @@ def load_parler_model(repo_namespace, repo_name, device):
         logger.error(f"Failed to load Parler TTS model or tokenizer: {e}", exc_info=True)
         raise RuntimeError(f"Parler TTS model or tokenizer loading failed : {e}")
 
-
-def load_emotion():
+def load_emotion(audio_path):
     try:
         inference_pipeline = pipeline(task=Tasks.emotion_recognition, model="iic/emotion2vec_plus_large")
         logger.info("Emotion2Vector Model initialized successfully.")
-        return inference_pipeline
     except Exception as e:
-        logger.error(f"Failed to initialize Emotion2Vector model: {e}", exc_info=True)
-        raise RuntimeError("Emotion2Vector model initialization failed.")
+        logger.error(f"Failed to process audio for Emotion2Vector: {e}", exc_info=True)
+        raise RuntimeError("Emotion2Vector processing failed.")
 
-    
+
 def get_tts_score(request: str) -> dict:
     """
     Calculate and return the TTS scores with optional weighting.
@@ -151,7 +149,7 @@ def get_tts_score(request: str) -> dict:
     for text, last_user_message, voice_description in data:
         try:
             # Calculate the base score and wer using the scoring workflow function.
-            base_score, wer_score = scoring_workflow(request.repo_namespace, request.repo_name, text, voice_description, device, model, tokenizer, emotion_pipeline)
+            base_score, wer_score = scoring_workflow(request.repo_namespace, request.repo_name, text, voice_description, device, model, tokenizer)
 
             # Extract float values from each tensor in the 'scores' list for further processing
             float_values_from_tensors = [score.item() for score in base_score]
