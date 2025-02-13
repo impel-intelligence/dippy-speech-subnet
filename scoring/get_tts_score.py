@@ -12,7 +12,8 @@ import torch.nn as nn
 import torch.distributed as dist
 
 from parler_tts import ParlerTTSForConditionalGeneration
-from transformers import pipeline, Tasks
+from transformers import pipeline
+from modelscope.utils.constant import Tasks
 from transformers import AutoTokenizer, WhisperForConditionalGeneration, WhisperProcessor
 
 
@@ -114,9 +115,9 @@ def load_parler_model(repo_namespace, repo_name, device):
 
 def load_emotion():
     try:
-        emotion_pipeline = pipeline(task=Tasks.emotion_recognition, model="iic/emotion2vec_plus_large")
-        logger.info("Emotion2Vector Model downloaded and initialized successfully.")
-        return emotion_pipeline
+        inference_pipeline = pipeline(task=Tasks.emotion_recognition, model="iic/emotion2vec_plus_large")
+        logger.info("Emotion2Vector Model initialized successfully.")
+        return inference_pipeline
     except Exception as e:
         logger.error(f"Failed to initialize Emotion2Vector model: {e}", exc_info=True)
         raise RuntimeError("Emotion2Vector model initialization failed.")
