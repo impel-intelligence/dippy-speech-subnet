@@ -20,7 +20,7 @@ logger = logging.getLogger(__name__)  # Create a logger for this module
 
 def load_dataset():
     
-    NUMBER_OF_SAMPLES = 30
+    NUMBER_OF_SAMPLES = 25
 
 
     print("Sampling dataset")
@@ -106,7 +106,7 @@ def load_parler_model(repo_namespace, repo_name, device):
 
         # compile the forward pass
         compile_mode = "reduce-overhead" # chose "reduce-overhead" for 3 to 4x speed-up
-        model.generation_config.cache_implementation = "sdpa"
+        model.generation_config.cache_implementation = "static"
         model.forward = torch.compile(model.forward, mode=compile_mode)
 
         tokenizer = AutoTokenizer.from_pretrained(model_name)
