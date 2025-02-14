@@ -614,7 +614,7 @@ class Validator:
     async def try_sync_metagraph(self, ttl: int = 120) -> bool:
         try:
             bt.logging.warning(f"attempting sync with network {self.subtensor.network}")
-            self.metagraph = Metagraph(netuid=self.config.netuid, subtensor=self.subtensor, lite=False, sync=True, )
+            self.metagraph = Metagraph(netuid=int(self.config.netuid), subtensor=self.subtensor, lite=False, sync=True, )
             return True
         except Exception as e:
             metagraph_failure_payload = {
