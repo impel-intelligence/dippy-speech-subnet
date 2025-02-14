@@ -621,13 +621,13 @@ class Validator:
                     "initial_metagraph_sync_success": False,
                     "failure_str": str(e),
                     "stacktrace": traceback.format_exc(),
-                    "network":network,
+                    "network":self.subtensor.network,
                 }
             logged_payload = self._with_decoration(
                     self.local_metadata, self.wallet.hotkey, payload=metagraph_failure_payload
                 )
             self._remote_log(logged_payload)
-            bt.logging.error(f"could not sync metagraph {e} using network {network}. Starting retries. If this issue persists please restart the validator script")
+            bt.logging.error(f"could not sync metagraph {e} using network {self.subtensor.network}. Starting retries. If this issue persists please restart the validator script")
             self.close_subtensor()
             self.subtensor = Validator.new_subtensor()
 
