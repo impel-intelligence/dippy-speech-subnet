@@ -18,7 +18,7 @@ from collections import defaultdict
 from dataclasses import dataclass
 from importlib.metadata import version
 from shlex import split
-from typing import Dict, List, Optional, Tuple
+from typing import Dict, List, Optional,Any, Tuple, cast
 
 import bittensor as bt
 import numpy as np
@@ -40,6 +40,7 @@ from utilities.compete import iswin
 from utilities.event_logger import EventLogger
 from utilities.miner_registry import MinerEntry
 from utilities.validation_utils import regenerate_hash
+from importlib.metadata import version as pkg_version
 
 # Permission is hereby granted, free of charge, to any person obtaining a copy of this software and associated
 # documentation files (the “Software”), to deal in the Software without restriction, including without limitation
@@ -55,6 +56,32 @@ from utilities.validation_utils import regenerate_hash
 # OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER
 # DEALINGS IN THE SOFTWARE.
 
+from bittensor.core.chain_data import (
+    decode_account_id,
+)
+
+def extract_raw_data(data):
+    try:
+        # Navigate to the fields tuple
+        fields = data.get('info', {}).get('fields', ())
+        
+        # The first element should be a tuple containing a dictionary
+        if fields and isinstance(fields[0], tuple) and isinstance(fields[0][0], dict):
+            # Find the 'Raw' key in the dictionary
+            raw_dict = fields[0][0]
+            raw_key = next((k for k in raw_dict.keys() if k.startswith('Raw')), None)
+            
+            if raw_key and raw_dict[raw_key]:
+                # Extract the inner tuple of integers
+                numbers = raw_dict[raw_key][0]
+                # Convert to string
+                result = ''.join(chr(x) for x in numbers)
+                return result
+                
+    except (IndexError, AttributeError):
+        pass
+    
+    return None
 
 os.environ["TOKENIZERS_PARALLELISM"] = "false"
 INVALID_BLOCK_START = 4200000
@@ -207,31 +234,15 @@ class Validator:
         config = bt.config(parser)
         return config
 
-    def state_path(self) -> str:
-        """
-        Constructs a file path for storing validator state.
-
-        Returns:
-        str: A string representing the file path.
-        """
-        return os.path.expanduser(
-            "{}/{}/{}/netuid{}/{}".format(
-                bt.logging.config().logging.logging_dir,
-                self.wallet.name,
-                self.wallet.hotkey_str,
-                self.config.netuid,
-                "vali-state",
-            )
-        )
-
     def __init__(self, local_metadata: LocalMetadata):
         self.config = Validator.config()
         bt.logging(config=self.config)
 
-        bt.logging.warning(f"Starting validator with config: {self.config}")
+        bt_version = pkg_version("bittensor")
+        bt.logging.warning(f"Starting validator with config: {self.config}, bittensor version: {bt_version}")
 
         network_name = self.config.subtensor.network or "finney"
-        netuid = self.config.netuid or 11
+        netuid = self.config.netuid or 58
         # === Bittensor objects ====
         self.wallet = bt.wallet(config=self.config)
 
@@ -337,52 +348,6 @@ class Validator:
             bt.logging.warning(f"successfully sent event_report with payload {payload}")
         except Exception as e:
             bt.logging.error(f"could not remote log: {e}. This error is ok to ignore if you are a validator")
-
-    @staticmethod
-    def adjust_for_vtrust(weights: np.ndarray, consensus: np.ndarray, vtrust_min: float = 0.5) -> np.ndarray:
-        """
-        Interpolate between the current weight and the normalized consensus weights so that the
-        vtrust does not fall below vturst_min, assuming the consensus does not change.
-        """
-        if not isinstance(weights, np.ndarray):
-            return weights
-
-        vtrust_loss_desired = 1 - vtrust_min
-
-        # If the predicted vtrust is already above vtrust_min, then just return the current weights.
-        orig_vtrust_loss = float(np.sum(np.maximum(weights - consensus, 0.0)))
-        if orig_vtrust_loss <= vtrust_loss_desired:
-            bt.logging.warning("Weights already satisfy vtrust_min. {} >= {}.".format(1 - orig_vtrust_loss, vtrust_min))
-            return weights
-
-        # If maximum vtrust allowable by the current consensus is less that vtrust_min, then choose the smallest lambda
-        # that still maximizes the predicted vtrust. Otherwise, find lambda that achieves vtrust_min.
-        vtrust_loss_min = 1 - np.sum(consensus)
-        if vtrust_loss_min > vtrust_loss_desired:
-            bt.logging.warning(
-                "Maximum possible vtrust with current consensus is less than vtrust_min. {} < {}.".format(
-                    1 - vtrust_loss_min, vtrust_min
-                )
-            )
-            vtrust_loss_desired = 1.05 * vtrust_loss_min
-
-        # We could solve this with a LP, but just do rootfinding with scipy.
-        consensus_normalized = consensus / np.sum(consensus)
-
-        def fn(lam: float):
-            new_weights = (1 - lam) * weights + lam * consensus_normalized
-            vtrust_loss = np.maximum(0.0, new_weights - consensus).sum()
-            return vtrust_loss - vtrust_loss_desired
-
-        sol = optimize.root_scalar(fn, bracket=[0, 1], method="brentq")
-        lam_opt = sol.root
-
-        new_weights = (1 - lam_opt) * weights + lam_opt * consensus_normalized
-        vtrust_pred = np.minimum(weights, consensus).sum()
-        bt.logging.warning(
-            "Interpolated weights to satisfy vtrust_min. {} -> {}.".format(1 - orig_vtrust_loss, vtrust_pred)
-        )
-        return new_weights
 
     async def set_weights_with_wait(self, weights, netuid, wallet, uids):
         retries = 5
@@ -501,11 +466,69 @@ class Validator:
             self._remote_log(logged_payload)
         return weights_set_success, error_msg
 
+
+    def build_commit_data(self) -> Dict[str, Any]:
+        max_retries = 10
+        base_delay = 1.5  # seconds
+        commitments = {}
+        raw_commmitments = None
+        for attempt in range(max_retries):
+            try:
+                # First try using self.subtensor
+                try:
+                    raw_commmitments = self.subtensor.query_map(
+                        module="Commitments",
+                        name="CommitmentOf",
+                        params=[self.config.netuid])
+                except Exception as e:
+                    bt.logging.warning(f"Failed to fetch metadata with self.subtensor: {e}, trying dedicated subtensor")
+                    # Fall back to dedicated subtensor
+                    dedicated_subtensor = None
+                    try:
+                        network = "finney"
+                        dedicated_subtensor = Subtensor(network=network)
+                        bt.logging.warning(f"Created dedicated subtensor for metadata fetch: {dedicated_subtensor} ")
+                        raw_commmitments = dedicated_subtensor.query_map(
+                        module="Commitments",
+                        name="CommitmentOf",
+                        params=[self.config.netuid])
+                    finally:
+                        # Ensure we close the dedicated subtensor
+                        if dedicated_subtensor is not None:
+                            try:
+                                dedicated_subtensor.close()
+                            except Exception as close_error:
+                                bt.logging.error(f"Error closing dedicated subtensor: {close_error}")
+            except Exception as e:
+                delay = base_delay**attempt
+                if attempt < max_retries - 1:  # Don't log "retrying" on the last attempt
+                    bt.logging.error(f"Attempt {attempt + 1}/{max_retries} failed to fetch data : {e}")
+                    bt.logging.info(f"Retrying in {delay:.1f} seconds...")
+                    time.sleep(delay)
+                else:
+                    bt.logging.error(f"All attempts failed to fetch data : {e}")
+                    raise e
+
+        if raw_commmitments is None:
+            raise Exception("Failed to fetch raw commitments from chain")
+        commitments = {}
+        for key, value in raw_commmitments:
+            try:
+                hotkey = decode_account_id(key[0])
+                body = cast(dict, value.value)
+                chain_str = extract_raw_data(body)
+                commitments[str(hotkey)] = {"block": body["block"], "chain_str": chain_str}
+            except Exception as e:
+                bt.logging.error(f"Failed to decode commitment for hotkey {hotkey}: {e}")
+                continue
+
+        return commitments
+
     async def build_registry(
         self, all_uids: List[int], current_block: int, max_concurrent: int = 32
     ) -> Tuple[int, MinerEntry]:
         miner_registry: Dict[int, MinerEntry] = {uid: MinerEntry() for uid in all_uids}
-
+        commitments = self.build_commit_data()
         invalid_uids = []
 
         async def process_uid(uid):
@@ -513,11 +536,16 @@ class Validator:
             miner_registry[uid].hotkey = hotkey
             bt.logging.debug(f"now checking for uid={uid} and hotkey {hotkey}")
             try:
-                model_data = self.fetch_model_data(uid, hotkey)
-                if model_data is None:
+                raw_miner_data = commitments[hotkey] if hotkey in commitments else None
+                if raw_miner_data is None:
                     invalid_uids.append(uid)
                     bt.logging.error(f"skip uid={uid} no model_data")
                     return
+                miner_model_id = ModelId.from_compressed_str(raw_miner_data["chain_str"])
+                miner_block = raw_miner_data["block"]
+                model_data = MinerEntry()
+                model_data.block = miner_block
+                model_data.miner_model_id = miner_model_id
                 if model_data.miner_model_id is None:
                     invalid_uids.append(uid)
                     bt.logging.warning(f"skip uid={uid} no model_id available")
@@ -527,15 +555,6 @@ class Validator:
                     invalid_uids.append(uid)
                     bt.logging.info(f"skip uid={uid} submitted on {model_data.block} after {current_block}")
                     return
-
-                # hotkey_hash_passes = self.model_id_matches_hotkey(model_data.miner_model_id, hotkey)
-
-                # if not hotkey_hash_passes:
-                #     invalid_uids.append(uid)
-                #     bt.logging.warning(
-                #         f"uid={uid} submitted on {model_data.miner_model_id.hash} does not include same hotkey"
-                #     )
-                #     return
 
                 miner_registry[uid].block = model_data.block
                 miner_registry[uid].miner_model_id = model_data.miner_model_id
@@ -593,10 +612,9 @@ class Validator:
         return invalid_uids, miner_registry
 
     async def try_sync_metagraph(self, ttl: int = 120) -> bool:
-        network = random.choice(["finney", "subvortex"])
         try:
-            bt.logging.warning(f"attempting sync with network {network}")
-            self.metagraph = Metagraph(netuid=self.config.netuid, network=network, lite=False, sync=True)
+            bt.logging.warning(f"attempting sync with network {self.subtensor.network}")
+            self.metagraph = Metagraph(netuid=self.config.netuid, subtensor=self.subtensor, lite=False, sync=True, )
             return True
         except Exception as e:
             metagraph_failure_payload = {
@@ -773,6 +791,25 @@ class Validator:
 
         return None
 
+    @staticmethod
+    def new_subtensor():
+        network = random.choice(["finney", "subvortex"])
+        subtensor = Subtensor(network=network)
+        bt.logging.warning(f"subtensor retry initialized with Subtensor(): {subtensor}")
+        return subtensor
+
+    def close_subtensor(self):
+        status = ""
+        try:
+            self.subtensor.close()
+            status = "subtensor_closed"
+        except Exception as e:
+            status = f"{str(e)}\n{traceback.format_exc()}"
+        payload = {"subtensor_close_status": status}
+        logged_payload = self._with_decoration(
+                    self.local_metadata, self.wallet.hotkey, payload=payload
+                )
+        self._remote_log(logged_payload)
     @staticmethod
     def adjusted_temperature_multipler(current_block: int) -> float:
         CHANGE_BLOCK = 4247000
@@ -1085,25 +1122,6 @@ def _get_model_score(
     return score_data
 
 
-@staticmethod
-def new_subtensor():
-    network = random.choice(["finney", "subvortex"])
-    subtensor = Subtensor(network=network)
-    bt.logging.warning(f"subtensor retry initialized with Subtensor(): {subtensor}")
-    return subtensor
-
-def close_subtensor(self):
-    status = ""
-    try:
-        self.subtensor.close()
-        status = "subtensor_closed"
-    except Exception as e:
-        status = f"{str(e)}\n{traceback.format_exc()}"
-    payload = {"subtensor_close_status": status}
-    logged_payload = self._with_decoration(
-                self.local_metadata, self.wallet.hotkey, payload=payload
-            )
-    self._remote_log(logged_payload)
 
 
 if __name__ == "__main__":
