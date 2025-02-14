@@ -242,16 +242,16 @@ class Validator:
         bt.logging.warning(f"Starting validator with config: {self.config}, bittensor version: {bt_version}")
 
         network_name = self.config.subtensor.network or "finney"
-        netuid = self.config.netuid or 58
+        try:
+            netuid = int(self.config.netuid)
+        except (ValueError, TypeError):
+            netuid = 58
+        netuid = netuid or 58
         # === Bittensor objects ====
         self.wallet = bt.wallet(config=self.config)
 
-        # self.subtensor = bt.subtensor(config=self.config)
         self.subtensor = Subtensor(config=self.config)
-
-        # self.metagraph = Metagraph(netuid=netuid, network=network_name, lite=False, sync=True)
-        self.metagraph = self.subtensor.metagraph(netuid=self.config.netuid, lite=False)
-        # self.metagraph.sync(subtensor=self.subtensor)
+        self.metagraph = self.subtensor.metagraph(netuid=netuid, lite=False)
 
         # Dont check registration status if offline.
         if not self.config.offline:

@@ -8,7 +8,6 @@ protobuf
 python-dotenv
 tiktoken
 threadpoolctl
-wandb
 loguru
 scipy
 numpy
