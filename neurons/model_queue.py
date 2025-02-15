@@ -175,6 +175,67 @@ class ModelQueue:
                 self.logger.error(f"exception for uid {uid} : {e}")
                 return StatusEnum.ERROR
 
+
+    
+    def build_commit_data(self) -> Dict[str, Any]:
+        max_retries = 10
+        base_delay = 1.5  # seconds
+        commitments = {}
+        raw_commmitments = None
+        for attempt in range(max_retries):
+            try:
+                # First try using self.subtensor
+                try:
+                    raw_commmitments = self.subtensor.query_map(
+                        module="Commitments",
+                        name="CommitmentOf",
+                        params=[self.config.netuid])
+                except Exception as e:
+                    bt.logging.warning(f"Failed to fetch metadata with self.subtensor: {e}, trying dedicated subtensor")
+                    # Fall back to dedicated subtensor
+                    dedicated_subtensor = None
+                    try:
+                        network = random.choice(["finney", "subvortex", "latent-lite"])
+                        dedicated_subtensor = Subtensor(network=network)
+                        bt.logging.warning(f"Created dedicated subtensor for metadata fetch: {dedicated_subtensor} ")
+                        raw_commmitments = dedicated_subtensor.query_map(
+                        module="Commitments",
+                        name="CommitmentOf",
+                        params=[self.config.netuid])
+                    finally:
+                        # Ensure we close the dedicated subtensor
+                        if dedicated_subtensor is not None:
+                            try:
+                                dedicated_subtensor.close()
+                            except Exception as close_error:
+                                bt.logging.error(f"Error closing dedicated subtensor: {close_error}")
+            except Exception as e:
+                delay = base_delay**attempt
+                if attempt < max_retries - 1:  # Don't log "retrying" on the last attempt
+                    bt.logging.error(f"Attempt {attempt + 1}/{max_retries} failed to fetch data : {e}")
+                    bt.logging.info(f"Retrying in {delay:.1f} seconds...")
+                    time.sleep(delay)
+                else:
+                    bt.logging.error(f"All attempts failed to fetch data : {e}")
+                    raise e
+
+        if raw_commmitments is None:
+            raise Exception("Failed to fetch raw commitments from chain")
+        commitments = {}
+        for key, value in raw_commmitments:
+            try:
+                hotkey = decode_account_id(key[0])
+                body = cast(dict, value.value)
+                chain_str = extract_raw_data(body)
+                commitments[str(hotkey)] = {"block": body["block"], "chain_str": chain_str}
+            except Exception as e:
+                bt.logging.error(f"Failed to decode commitment for hotkey {hotkey}: {e}")
+                continue
+
+        return commitments
+
+    
+
     async def load_latest_metagraph(self, max_tasks: int = 32):
         self.logger.info(f"fetching metagraph for netuid={self.netuid}")
         # latest_metagraph = self.subtensor.metagraph(self.netuid)
@@ -189,30 +250,7 @@ class ModelQueue:
         # Create mapping of uid -> MinerInfo
         miner_info_map: Dict[int, MinerInfo] = {}
 
-        substrate_client = self.subtensor.substrate
-        all_commitments = substrate_client.query_map(
-            module="Commitments",
-            storage_function="CommitmentOf",
-            params=[self.config.netuid],
-            block_hash=None,
-        )
-        commitments = {}
-        for key, value in all_commitments:
-            hotkey = key.value
-            commitment_info = value.value.get("info", {})
-            fields = commitment_info.get("fields", [])
-            if not fields or not isinstance(fields[0], dict):
-                continue
-            field_value = next(iter(fields[0].values()))
-            if field_value.startswith("0x"):
-                field_value = field_value[2:]
-            try:
-                chain_str = bytes.fromhex(field_value).decode("utf-8").strip()
-                commitments[str(hotkey)] = {"block": value["block"].value, "chain_str": chain_str}
-            except Exception as e:
-                self.logger.error(f"Failed to decode commitment for hotkey {hotkey}: {e}")
-                continue
-
+        commitments = self.build_commit_data()
                 
         for uid in all_uids:
             hotkey = hotkeys[uid]
