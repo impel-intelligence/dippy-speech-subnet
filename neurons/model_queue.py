@@ -41,6 +41,8 @@ from common.model_id import ModelId
 from common.scores import Scores, StatusEnum
 from common.validation_utils import LocalMetadata
 
+from typing import Dict, Any
+
 # Load environment variables from a .env file
 load_dotenv(override=True)
 
