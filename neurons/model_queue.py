@@ -35,6 +35,10 @@ import bittensor as bt
 from bittensor.core.metagraph import Metagraph
 from bittensor.core.subtensor import Subtensor
 from dotenv import load_dotenv
+from bittensor.core.chain_data import (
+    decode_account_id,
+)
+
 
 import constants
 from common.event_logger import EventLogger
@@ -42,7 +46,7 @@ from common.model_id import ModelId
 from common.scores import Scores, StatusEnum
 from common.validation_utils import LocalMetadata
 
-from typing import Dict, Any
+from typing import cast, Any, Dict
 
 # Load environment variables from a .env file
 load_dotenv(override=True)
@@ -64,12 +68,36 @@ if not admin_key:
     )
 
 
+def extract_raw_data(data):
+        try:
+            # Navigate to the fields tuple
+            fields = data.get('info', {}).get('fields', ())
+            
+            # The first element should be a tuple containing a dictionary
+            if fields and isinstance(fields[0], tuple) and isinstance(fields[0][0], dict):
+                # Find the 'Raw' key in the dictionary
+                raw_dict = fields[0][0]
+                raw_key = next((k for k in raw_dict.keys() if k.startswith('Raw')), None)
+                
+                if raw_key and raw_dict[raw_key]:
+                    # Extract the inner tuple of integers
+                    numbers = raw_dict[raw_key][0]
+                    # Convert to string
+                    result = ''.join(chr(x) for x in numbers)
+                    return result
+                
+        except (IndexError, AttributeError):
+            pass
+        
+        return None
+
+
 @dataclass
 class MinerInfo:
     hotkey: str
     metadata: Optional[Dict] = None
-
-
+     
+     
 class ModelQueue:
     @staticmethod
     def config():
