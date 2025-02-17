@@ -86,7 +86,7 @@ def extract_raw_data(data):
 os.environ["TOKENIZERS_PARALLELISM"] = "false"
 INVALID_BLOCK_START = 4200000
 INVALID_BLOCK_END = 4200000
-NEW_EPOCH_BLOCK = 4799345
+NEW_EPOCH_BLOCK = 4952280 # Models submitted before this block will get a score of 0
 
 
 def compute_wins(
@@ -674,7 +674,7 @@ class Validator:
             return success
 
         try:
-            bt.logging.warning(f"Running Validator Version - V5.0.0")
+            bt.logging.warning(f"Running Validator Version - DTAO - V0.0.1")
             bt.logging.warning(f"Running step with ttl {ttl}")
             step_success = await asyncio.wait_for(_try_run_step(), ttl)
             bt.logging.warning("Finished running step.")

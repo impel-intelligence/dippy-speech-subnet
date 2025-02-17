@@ -7,12 +7,22 @@ from scoring.common import EVALUATION_DATASET_SAMPLE_SIZE, MAX_GENERATION_LENGTH
 from scoring.dataset import StreamedSyntheticDataset
 from scoring.scoring_logic.logic import scoring_workflow
 
+import torch
+import torch.nn as nn
+import torch.distributed as dist
+
+from parler_tts import ParlerTTSForConditionalGeneration
+from modelscope.pipelines import pipeline
+from modelscope.utils.constant import Tasks
+from transformers import AutoTokenizer, WhisperForConditionalGeneration, WhisperProcessor
+
+
 logger = logging.getLogger(__name__)  # Create a logger for this module
 
 
 def load_dataset():
     
-    NUMBER_OF_SAMPLES = 3
+    NUMBER_OF_SAMPLES = 40
 
 
     print("Sampling dataset")
@@ -90,6 +100,27 @@ def apply_weights(base_score: float, wer: float) -> float:
     return weighted_score
 
 
+def load_parler_model(repo_namespace, repo_name, device):
+    model_name = f"{repo_namespace}/{repo_name}"
+    try:
+        model = ParlerTTSForConditionalGeneration.from_pretrained(model_name).to(device)
+        tokenizer = AutoTokenizer.from_pretrained(model_name)
+        logger.info(f"Parler TTS model '{model_name}' and tokenizer loaded successfully.")
+        return model, tokenizer
+    except Exception as e:
+        logger.error(f"Failed to load Parler TTS model or tokenizer: {e}", exc_info=True)
+        raise RuntimeError(f"Parler TTS model or tokenizer loading failed : {e}")
+
+def load_emotion():
+    try:
+        inference_pipeline = pipeline(task=Tasks.emotion_recognition, model="iic/emotion2vec_plus_large")
+        logger.info("Emotion2Vector Model initialized successfully.")
+        return inference_pipeline
+    except Exception as e:
+        logger.error(f"Failed to process audio for Emotion2Vector: {e}", exc_info=True)
+        raise RuntimeError("Emotion2Vector processing failed.")
+
+
 def get_tts_score(request: str) -> dict:
     """
     Calculate and return the TTS scores with optional weighting.
@@ -107,11 +138,18 @@ def get_tts_score(request: str) -> dict:
     # # Define the weights for scoring, with 'text_length' having a default weight of 1.
     # weights = {"text_length": 1}
 
+    device = "cuda:0" if torch.cuda.is_available() else "cpu"
+    logger.info(f"Device selected for computation: {device}")
+
+    model, tokenizer = load_parler_model(request.repo_namespace, request.repo_name, device)
+
+    emotion_inference_pipeline = load_emotion()
+
     # Iterate over the data, which contains tuples of text, last user message, and voice description.
     for text, last_user_message, voice_description in data:
         try:
             # Calculate the base score and wer using the scoring workflow function.
-            base_score, wer_score = scoring_workflow(request.repo_namespace, request.repo_name, text, voice_description)
+            base_score, wer_score = scoring_workflow(request.repo_namespace, request.repo_name, text, voice_description, device, model, tokenizer, emotion_inference_pipeline)
 
             # Extract float values from each tensor in the 'scores' list for further processing
             float_values_from_tensors = [score.item() for score in base_score]
