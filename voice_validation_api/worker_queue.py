@@ -110,14 +110,7 @@ class WorkerQueue:
             "RUNNING",
             "Model evaluation in progress starting with human similarity score",
         )
-
-        # Determine which GPU to use by cycling through the available ones.
-        num_gpus = len(self.GPU_ID_MAP)
-        selected_gpu_key = queue_id % num_gpus
-        selected_gpu_ids = self.GPU_ID_MAP[selected_gpu_key]
-        
         logger.info("Create Evaluator")
-        logger.info(f"Queue {queue_id} assigned to GPU(s) {selected_gpu_ids}")
         evaluator = Evaluator(image_name=self.image_name, trace=True, gpu_ids=self.GPU_ID_MAP[queue_id])
 
         # Run evaluation scoring
