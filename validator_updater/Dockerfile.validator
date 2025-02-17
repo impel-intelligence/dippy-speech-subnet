@@ -13,10 +13,10 @@ COPY --from=ghcr.io/astral-sh/uv:0.4 /uv /bin/uv
 WORKDIR /app
 
 # Accept environment variables as build arguments
-ARG ADMIN_KEY
+#ARG ADMIN_KEY
 
 # Set environment variables from build arguments
-ENV ADMIN_KEY=$ADMIN_KEY
+#ENV ADMIN_KEY=$ADMIN_KEY
 
 # Create a directory to bind the host wallet
 RUN mkdir -p /root/.bittensor/wallets/
@@ -31,7 +31,7 @@ COPY common/ common/
 COPY constants/ constants/
 COPY neurons ./neurons
 
-# COPY .env .
+COPY .env .
 COPY pyproject.toml .
 COPY .git .git
 
