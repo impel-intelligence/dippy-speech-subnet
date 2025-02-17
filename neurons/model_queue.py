@@ -134,7 +134,7 @@ class ModelQueue:
 
         self.subtensor = Subtensor(network)
 
-        self.metagraph = Metagraph(netuid=self.netuid, network=network, lite=True, sync=True)
+        self.metagraph = Metagraph(netuid=int(self.netuid), network=network, lite=True, sync=True)
         self.metagraph.sync(subtensor=self.subtensor)
 
         logfilepath = "/tmp/modelq/{time:UNIX}.log"
