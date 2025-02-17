@@ -86,7 +86,7 @@ def extract_raw_data(data):
 os.environ["TOKENIZERS_PARALLELISM"] = "false"
 INVALID_BLOCK_START = 4200000
 INVALID_BLOCK_END = 4200000
-NEW_EPOCH_BLOCK = 4952240 # Models submitted before this block will get a score of 0
+NEW_EPOCH_BLOCK = 4952280 # Models submitted before this block will get a score of 0
 
 
 def compute_wins(
