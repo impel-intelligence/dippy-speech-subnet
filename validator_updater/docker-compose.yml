@@ -18,23 +18,23 @@ services:
     labels:
       - "com.centurylinklabs.watchtower.enable=true" # Allow Watchtower to monitor this service
 
-  # watchtower:
-  #   image: containrrr/watchtower
-  #   volumes:
-  #     - /var/run/docker.sock:/var/run/docker.sock
-  #   environment:
-  #     ORG_NAME: ${ORG_NAME}
-  #     WATCHTOWER_CLEANUP: "true"
-  #     WATCHTOWER_POLL_INTERVAL: "900" # Checks for updates every 15 minutes
-  #     WATCHTOWER_LABEL_ENABLE: "true" # Enable label-based service updates
-  #   command: --debug
-  #   logging:
-  #     driver: "fluentd"
-  #     options:
-  #       fluentd-address: "localhost:24224" # Use localhost to reference the host's Fluentd
-  #       tag: "watchtower_${ORG_NAME}"
-  #   depends_on:
-  #     - fluentd # Ensures Fluentd starts before this service
+  watchtower:
+    image: containrrr/watchtower
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
+    environment:
+      ORG_NAME: ${ORG_NAME}
+      WATCHTOWER_CLEANUP: "true"
+      WATCHTOWER_POLL_INTERVAL: "900" # Checks for updates every 15 minutes
+      WATCHTOWER_LABEL_ENABLE: "true" # Enable label-based service updates
+    command: --debug
+    logging:
+      driver: "fluentd"
+      options:
+        fluentd-address: "localhost:24224" # Use localhost to reference the host's Fluentd
+        tag: "watchtower_${ORG_NAME}"
+    depends_on:
+      - fluentd # Ensures Fluentd starts before this service
 
   fluentd:
     build:
