@@ -8,7 +8,7 @@ logger = logging.getLogger(__name__)
 
 def test_hume_integration():
     # Load environment variables from .env file
-    load_dotenv()
+    load_dotenv(override=True)
     
     # Path to your test audio file
     test_audio_path = "scoring/tests/test_audio/Sample_1_Will.wav"
@@ -17,13 +17,6 @@ def test_hume_integration():
         # Process the audio file
         logger.info(f"Processing audio file: {test_audio_path}")
         results = process_emotion(test_audio_path, emotion_inference_pipeline=None)
-        
-        # The function has a pdb.set_trace() so it will pause here for inspection
-        # You can examine:
-        # - emotion_scores in the raw_scores
-        # - z_scores for normalized values
-        # - top_emotions for the highest scoring emotions
-        
         logger.info("Results:")
         logger.info(f"Raw scores: {results['raw_scores']}")
         logger.info(f"Z-scores: {results['z_scores']}")
