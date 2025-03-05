@@ -17,13 +17,16 @@ import soundfile as sf
 import torch
 import torch.distributed as dist
 import torch.nn as nn
-from emotion_processing import compute_z_scores, extract_emotions, get_top_n_emotions
+from scoring.scoring_logic.emotion_processing import compute_z_scores, extract_emotions, get_top_n_emotions
 from huggingface_hub import hf_hub_download, login
 from jiwer import Compose, RemovePunctuation, Strip, ToLowerCase, wer
 from modelscope.pipelines import pipeline
 from modelscope.utils.constant import Tasks
 from parler_tts import ParlerTTSForConditionalGeneration
 from transformers import AutoTokenizer, WhisperForConditionalGeneration, WhisperProcessor
+
+from dotenv import load_dotenv
+load_dotenv(override=True)
 
 logger = logging.getLogger(__name__)
 

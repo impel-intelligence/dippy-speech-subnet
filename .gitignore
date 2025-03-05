@@ -178,3 +178,6 @@ wandb/
 testing/
 .idea
 playground/
+
+# Memory bank
+memory-bank/
