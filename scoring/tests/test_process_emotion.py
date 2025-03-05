@@ -1,5 +1,5 @@
 import logging
-from scoring_logic.logic import process_emotion
+from scoring.scoring_logic.logic import process_emotion
 from dotenv import load_dotenv
 
 # Set up logging
@@ -11,7 +11,7 @@ def test_hume_integration():
     load_dotenv()
     
     # Path to your test audio file
-    test_audio_path = "tests/test_audio/Sample_1_Will.wav"
+    test_audio_path = "scoring/tests/test_audio/Sample_1_Will.wav"
     
     try:
         # Process the audio file
