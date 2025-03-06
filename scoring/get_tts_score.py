@@ -1,29 +1,25 @@
-import random
 import logging
+import random
 
 import numpy as np
+import torch
+import torch.distributed as dist
+import torch.nn as nn
+from modelscope.pipelines import pipeline
+from modelscope.utils.constant import Tasks
+from parler_tts import ParlerTTSForConditionalGeneration
+from transformers import AutoTokenizer, WhisperForConditionalGeneration, WhisperProcessor
 
 from scoring.common import EVALUATION_DATASET_SAMPLE_SIZE, MAX_GENERATION_LENGTH, MAX_SEQ_LEN
 from scoring.dataset import StreamedSyntheticDataset
 from scoring.scoring_logic.logic import scoring_workflow
 
-import torch
-import torch.nn as nn
-import torch.distributed as dist
-
-from parler_tts import ParlerTTSForConditionalGeneration
-from modelscope.pipelines import pipeline
-from modelscope.utils.constant import Tasks
-from transformers import AutoTokenizer, WhisperForConditionalGeneration, WhisperProcessor
-
-
 logger = logging.getLogger(__name__)  # Create a logger for this module
 
 
 def load_dataset():
-    
-    NUMBER_OF_SAMPLES = 40
 
+    NUMBER_OF_SAMPLES = 40
 
     print("Sampling dataset")
     try:
@@ -31,24 +27,21 @@ def load_dataset():
             max_input_len=MAX_SEQ_LEN - MAX_GENERATION_LENGTH - 200,
             mock=True,
         )
-        
-        #sampled_data = dataset.sample_dataset(EVALUATION_DATASET_SAMPLE_SIZE, dummy=True)
-        #sampled_data = dataset.__getitem__(5)
+
         sampled_data = []
         for _ in range(NUMBER_OF_SAMPLES):
 
             _CURRENT_EVALUATION_DATASET_SAMPLE_SIZE = len(dataset.dataset)
 
-            random_index = random.randint(0, _CURRENT_EVALUATION_DATASET_SAMPLE_SIZE  - 1)  # Generate a random index
+            random_index = random.randint(0, _CURRENT_EVALUATION_DATASET_SAMPLE_SIZE - 1)  # Generate a random index
 
             sample = dataset.__getitem__(random_index)  # Get the sample using __getitem__
 
-            response, query, description = sample
-    
-            # Append the sample tuple to the list
-            sampled_data.append((response, query, description))
+            response, query, description, top_k_emotions = sample
 
-    
+            # Append the sample tuple to the list
+            sampled_data.append((response, query, description, top_k_emotions))
+
         """
         shape of sampled_data: a list structured like the following:
         [
@@ -86,8 +79,6 @@ def apply_weights(base_score: float, wer: float) -> float:
     :param wer: The Word Error Rate (WER) of the transcription.
     :return: The weighted score, with base_score and WER equally weighted (50% each).
     """
-    base_score = base_score[0]
-
     # Handle WER weighting
     if wer == 0.0:  # Perfect transcription
         wer_weighted_score = 1.0  # Perfect score for WER
@@ -105,20 +96,11 @@ def load_parler_model(repo_namespace, repo_name, device):
     try:
         model = ParlerTTSForConditionalGeneration.from_pretrained(model_name).to(device)
         tokenizer = AutoTokenizer.from_pretrained(model_name)
-        logger.info(f"Parler TTS model '{model_name}' and tokenizer loaded successfully.")
+        logger.info("Parler TTS model loaded successfully")
         return model, tokenizer
     except Exception as e:
-        logger.error(f"Failed to load Parler TTS model or tokenizer: {e}", exc_info=True)
-        raise RuntimeError(f"Parler TTS model or tokenizer loading failed : {e}")
-
-def load_emotion():
-    try:
-        inference_pipeline = pipeline(task=Tasks.emotion_recognition, model="iic/emotion2vec_plus_large")
-        logger.info("Emotion2Vector Model initialized successfully.")
-        return inference_pipeline
-    except Exception as e:
-        logger.error(f"Failed to process audio for Emotion2Vector: {e}", exc_info=True)
-        raise RuntimeError("Emotion2Vector processing failed.")
+        logger.error("Failed to load Parler TTS model", exc_info=True)
+        raise RuntimeError(f"Model loading failed: {e}")
 
 
 def get_tts_score(request: str) -> dict:
@@ -139,23 +121,28 @@ def get_tts_score(request: str) -> dict:
     # weights = {"text_length": 1}
 
     device = "cuda:0" if torch.cuda.is_available() else "cpu"
-    logger.info(f"Device selected for computation: {device}")
+    logger.info("Initializing TTS scoring")
 
     model, tokenizer = load_parler_model(request.repo_namespace, request.repo_name, device)
 
-    emotion_inference_pipeline = load_emotion()
+    # emotion_inference_pipeline = load_emotion()
 
     # Iterate over the data, which contains tuples of text, last user message, and voice description.
-    for text, last_user_message, voice_description in data:
+    for text, last_user_message, voice_description, top_k_emotions in data:  # Unpack 4 values, ignore top_k_emotions
         try:
-            # Calculate the base score and wer using the scoring workflow function.
-            base_score, wer_score = scoring_workflow(request.repo_namespace, request.repo_name, text, voice_description, device, model, tokenizer, emotion_inference_pipeline)
+            # Detect the emotion in the audio sample and carry out word error rate analysis
+            detected_emotion, wer_score = scoring_workflow(text, voice_description, device, model, tokenizer)
 
-            # Extract float values from each tensor in the 'scores' list for further processing
-            float_values_from_tensors = [score.item() for score in base_score]
+            expected_emotion = top_k_emotions[0]
+
+            # Check if the expected emotion matches the detected emotion currently just one emotion can be more in the future
+            if detected_emotion.casefold() == expected_emotion.casefold():
+                score = 1
+            else:
+                score = 0
 
             # Apply weights to the base score based on text properties.
-            weighted_score = apply_weights(float_values_from_tensors, wer_score)
+            weighted_score = apply_weights(score, wer_score)
 
             # Append the weighted score to the scores list.
             scores.append(weighted_score)
@@ -163,7 +150,7 @@ def get_tts_score(request: str) -> dict:
         # Catch any exceptions that occur during score calculation.
         except Exception as e:
             # Log the error and update the result dictionary with the error message.
-            logging.info(f"Error calculating score: {e}")
+            logger.error("Error calculating score", exc_info=True)
             result["error"] = str(e)
 
     # Calculate the average score after the loop completes.

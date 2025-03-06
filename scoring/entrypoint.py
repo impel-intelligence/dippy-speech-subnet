@@ -19,8 +19,10 @@ logger = logging.getLogger(__name__)
 
 
 def write_to_json(data: dict, filepath: str = "/tmp/output.json"):
+    logger.info(f"Writing results to {filepath}")
     with open(filepath, "w") as f:
         json.dump(data, f, indent=2)
+    logger.debug(f"Final Score: {data}")
     typer.echo(f" Final Score {data}")
     typer.echo(f"Results written to {filepath}")
 
@@ -32,23 +34,33 @@ def _run(
     from scoring.get_eval_score import get_eval_score
     from scoring.get_tts_score import get_tts_score
 
+    logger.info(f"Starting {run_type} evaluation")
+    logger.debug(f"Request parameters: {request}")
     typer.echo(f"Evaluating with parameters: {request}")
+    
     result = {"completed": False}
     try:
         if run_type == "eval":
+            logger.info("Running evaluation score calculation")
             result = get_eval_score(request)
         if run_type == "tts":
+            logger.info("Running TTS score calculation")
             result = get_tts_score(request)
         result["completed"] = True
+        logger.info("Evaluation completed successfully")
+        logger.debug(f"Evaluation result: {result}")
         typer.echo(f"Evaluated with parameters: {result}")
     except Exception as e:
+        logger.error("Error during evaluation", exc_info=True)
         (
             exc_type,
             exc_value,
             exc_traceback,
         ) = sys.exc_info()  # Capture exception information
         traceback_details = traceback.format_exception(exc_type, exc_value, exc_traceback)
-        result["error"] = f'{"".join(traceback_details)} {str(e)}'
+        error_msg = f'{"".join(traceback_details)} {str(e)}'
+        logger.error(f"Detailed error: {error_msg}")
+        result["error"] = error_msg
     write_to_json(result, f"/tmp/{run_type}_output.json")
 
 

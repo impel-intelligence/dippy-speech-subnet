@@ -1,27 +1,33 @@
+import gc
+import json
 import logging
 import os
 import tempfile
+import time
 import uuid
+from typing import Any, Dict, Optional
+
 import httpx
-
-import gc
-import torch
-import ray
-import torch.distributed as dist
-
 import joblib
 import librosa
 import numpy as np
+import ray
+import requests
 import soundfile as sf
 import torch
+import torch.distributed as dist
 import torch.nn as nn
-from huggingface_hub import hf_hub_download
+from dotenv import load_dotenv
+from huggingface_hub import hf_hub_download, login
 from jiwer import Compose, RemovePunctuation, Strip, ToLowerCase, wer
 from modelscope.pipelines import pipeline
 from modelscope.utils.constant import Tasks
 from parler_tts import ParlerTTSForConditionalGeneration
 from transformers import AutoTokenizer, WhisperForConditionalGeneration, WhisperProcessor
-from huggingface_hub import login
+
+from scoring.scoring_logic.emotion_processing import compute_z_scores, extract_emotions, get_top_n_emotions
+
+load_dotenv(override=True)
 
 logger = logging.getLogger(__name__)
 
@@ -110,6 +116,7 @@ SPEAKERS = [
 
 TRANSCRIPTION_URL = os.environ.get("WHISPER_ENDPOINT")
 
+
 class EmotionMLPRegression(nn.Module):
     def __init__(self, input_size=200, hidden_size=512, intermediate_size=256, dropout_prob=0.07):
         super(EmotionMLPRegression, self).__init__()
@@ -136,56 +143,6 @@ class EmotionMLPRegression(nn.Module):
 
         out = self.fc3(out)
         return out
-
-
-def calculate_human_similarity_score(audio_emo_vector, model_file_name, pca_file_name):
-    """Calculate the human similarity score based on the audio emotion vector."""
-
-    # Ensure the input is a PyTorch tensor
-    if isinstance(audio_emo_vector, np.ndarray):
-        audio_emo_vector = torch.tensor(audio_emo_vector, dtype=torch.float32)
-
-    # Initialize the model
-    model = EmotionMLPRegression(input_size=200, hidden_size=512)
-
-    # Load the state dictionary into the model
-    model_path = hf_hub_download(
-        repo_id="DippyAI-Speech/Discriminator",
-        filename=model_file_name,  # Replace with the correct filename if different
-    )
-
-    # Load the state dictionary into the model
-    pca_model_path = hf_hub_download(
-        repo_id="DippyAI-Speech/PCA", filename=pca_file_name  # Replace with the correct filename if different
-    )
-
-    state_dict = torch.load(model_path, map_location=torch.device("cpu"))
-    model.load_state_dict(state_dict)
-
-    # Move the model to the appropriate device
-    device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-    model.to(device)
-
-    # Set the model to evaluation mode
-    model.eval()
-
-    # Load the PCA model
-    pca = joblib.load(pca_model_path)
-
-    # Ensure the input has the correct shape (batch dimension)
-    if audio_emo_vector.dim() == 1:
-        audio_emo_vector = audio_emo_vector.unsqueeze(0)  # Add batch dimension if needed
-
-    # Apply PCA transformation and move the tensor to the appropriate device
-    audio_emo_vector_pca = torch.tensor(pca.transform(audio_emo_vector.cpu().numpy()), dtype=torch.float32).to(
-        device
-    )  # Ensure the tensor is on the same device as the model
-
-    # Make a prediction
-    with torch.no_grad():  # Disable gradient calculation for inference
-        score = model(audio_emo_vector_pca)
-
-    return score
 
 
 def calculate_wer(reference: str, hypothesis: str, apply_preprocessing: bool = True) -> float:
@@ -219,33 +176,9 @@ def calculate_wer(reference: str, hypothesis: str, apply_preprocessing: bool = T
     return error_rate
 
 
-# def load_whisper_model(device):
-#     try:
-#         whisper_model_name = "openai/whisper-tiny"
-#         processor = WhisperProcessor.from_pretrained(whisper_model_name)
-#         whisper_model = WhisperForConditionalGeneration.from_pretrained(whisper_model_name).to(device)
-#         logger.info("Whisper Tiny model loaded successfully.")
-#         return processor, whisper_model
-#     except Exception as e:
-#         logger.error(f"Failed to load Whisper Tiny model: {e}", exc_info=True)
-#         raise RuntimeError("Whisper model loading failed.")
-
-
-# def load_parler_model(repo_namespace, repo_name, device):
-#     model_name = f"{repo_namespace}/{repo_name}"
-#     try:
-#         model = ParlerTTSForConditionalGeneration.from_pretrained(model_name).to(device)
-#         tokenizer = AutoTokenizer.from_pretrained(model_name)
-#         logger.info(f"Parler TTS model '{model_name}' and tokenizer loaded successfully.")
-#         return model, tokenizer
-#     except Exception as e:
-#         logger.error(f"Failed to load Parler TTS model or tokenizer: {e}", exc_info=True)
-#         raise RuntimeError(f"Parler TTS model or tokenizer loading failed : {e}")
-
-
-def generate_audio(speaker, prompt_text, sample_number, model, tokenizer, device, tempdir):
+def generate_audio(speaker, voice_description, prompt_text, sample_number, model, tokenizer, device, tempdir):
     try:
-        description = speaker["description"]
+        description = voice_description
         speaker_name = speaker["name"]
 
         # Tokenize the text and count tokens
@@ -285,37 +218,137 @@ def generate_audio(speaker, prompt_text, sample_number, model, tokenizer, device
         raise RuntimeError(f"Audio generation failed. {e}")
 
 
-def process_emotion(audio_path, emotion_inference_pipeline):
+def process_emotion(audio_path):
     try:
-        rec_result = emotion_inference_pipeline(audio_path, granularity="utterance", extract_embedding=True)
-        return rec_result[0]["feats"]
+        # Get API key from environment
+        api_key = os.environ.get("HUME_API_KEY")
+        if not api_key:
+            raise ValueError("HUME_API_KEY not set in environment")
+
+        # Process with Hume AI
+        predictions = process_hume_ai_file(api_key=api_key, file_path=audio_path)
+
+        # Extract and process emotions
+        emotion_scores = extract_emotions(data=predictions)
+
+        # Get z-scores
+        z_scores = compute_z_scores(emotion_scores=emotion_scores)
+
+        # Get top emotions
+        top_emotions = get_top_n_emotions(emotion_scores=emotion_scores, n=1)
+
+        return {"raw_scores": dict(emotion_scores), "z_scores": z_scores, "top_emotions": top_emotions}
+
     except Exception as e:
-        logger.error(f"Failed to process audio for Emotion2Vector: {e}", exc_info=True)
-        raise RuntimeError("Emotion2Vector processing failed.")
+        logger.error(f"Failed to process audio with Hume AI: {e}", exc_info=True)
+        raise RuntimeError("Hume AI processing failed.")
 
 
-# def transcribe_audio(audio_path, processor, whisper_model, device):
-#     try:
-#         audio, sample_rate = sf.read(audio_path)
+def submit_hume_ai_job(api_key: str, file_path: str, models: Optional[Dict[str, Any]] = None) -> str:
+    """
+    Submit a batch job to Hume AI for processing.
 
-#         # Resample the audio to 16,000 Hz if necessary
-#         if sample_rate != 16000:
-#             audio = librosa.resample(audio, orig_sr=sample_rate, target_sr=16000)
-#             sample_rate = 16000
+    Args:
+        api_key (str): Your Hume AI API key
+        file_path (str): Path to the audio file to be processed
+        models (dict, optional): Configuration for Hume AI models.
+                                 Defaults to burst and prosody models.
 
-#         # Clamp audio to avoid clipping issues
-#         audio = np.clip(audio, -1.0, 1.0)
+    Returns:
+        str: The job ID for tracking the processing status
+    """
+    # Default models configuration if not provided
+    if models is None:
+        models = {"burst": {}, "prosody": {"window": {"length": 10}}}
 
-#         inputs = processor(audio, sampling_rate=sample_rate, return_tensors="pt").to(device)
+    # Prepare the POST request
+    post_response = requests.post(
+        "https://api.hume.ai/v0/batch/jobs",
+        headers={
+            "X-Hume-Api-Key": api_key,
+        },
+        data={
+            "json": json.dumps({"models": models}),
+        },
+        files=[("file", (file_path.split("/")[-1], open(file_path, "rb")))],
+    )
 
-#         with torch.no_grad():
-#             predicted_ids = whisper_model.generate(inputs.input_features)
-#         transcription = processor.batch_decode(predicted_ids, skip_special_tokens=True)[0]
-#         logger.info(f"Transcription: {transcription}")
-#         return transcription
-#     except Exception as e:
-#         logger.error(f"Error during transcription with Whisper Tiny: {e}", exc_info=True)
-#         raise RuntimeError(f"Audio transcription failed: {e}")
+    # Check response and extract job ID
+    post_response.raise_for_status()
+    job_info = post_response.json()
+    job_id = job_info.get("job_id")
+
+    if not job_id:
+        raise ValueError("Job ID not found in response!")
+
+    return job_id
+
+
+def wait_for_hume_ai_job(api_key: str, job_id: str, polling_interval: int = 4) -> Dict[str, Any]:
+    """
+    Poll the Hume AI job status and retrieve predictions once complete.
+
+    Args:
+        api_key (str): Your Hume AI API key
+        job_id (str): The job ID to track
+        polling_interval (int, optional): Seconds to wait between status checks.
+                                          Defaults to 10.
+
+    Returns:
+        dict: The job predictions
+    """
+    job_url = f"https://api.hume.ai/v0/batch/jobs/{job_id}"
+
+    while True:
+        # Check job status
+        status_response = requests.get(job_url, headers={"X-Hume-Api-Key": api_key})
+        status_response.raise_for_status()
+
+        status_data = status_response.json()
+        current_status = status_data.get("state", {}).get("status", "").lower()
+        print("Current job status:", current_status)
+
+        if current_status == "completed":
+            # Retrieve predictions
+            predictions_response = requests.get(f"{job_url}/predictions", headers={"X-Hume-Api-Key": api_key})
+            predictions_response.raise_for_status()
+            return predictions_response.json()
+
+        elif current_status == "failed":
+            raise Exception("The Hume AI job failed to complete.")
+
+        # Wait before next polling
+        time.sleep(polling_interval)
+
+
+def process_hume_ai_file(
+    api_key: str, file_path: str, output_path: Optional[str] = None, models: Optional[Dict[str, Any]] = None
+) -> Dict[str, Any]:
+    """
+    Comprehensive function to process an audio file through Hume AI.
+
+    Args:
+        api_key (str): Your Hume AI API key
+        file_path (str): Path to the audio file to be processed
+        output_path (str, optional): Path to save predictions JSON.
+                                     Defaults to None (no file saved).
+        models (dict, optional): Custom models configuration
+
+    Returns:
+        dict: The job predictions
+    """
+    # Submit the job
+    job_id = submit_hume_ai_job(api_key, file_path, models)
+
+    # Wait for and retrieve predictions
+    predictions = wait_for_hume_ai_job(api_key, job_id)
+
+    # Optionally save predictions to a file
+    if output_path:
+        with open(output_path, "w") as json_file:
+            json.dump(predictions, json_file, indent=4)
+
+    return predictions
 
 
 def transcribe_audio(audio_path, transcription_url=TRANSCRIPTION_URL):
@@ -332,74 +365,85 @@ def transcribe_audio(audio_path, transcription_url=TRANSCRIPTION_URL):
     Raises:
         RuntimeError: If the transcription fails due to connection issues or other errors.
     """
+    logger.info(f"Starting Whisper transcription for audio: {audio_path}")
+
     try:
+        # Verify audio file exists
+        if not os.path.exists(audio_path):
+            error_msg = f"Audio file not found at path: {audio_path}"
+            logger.error(error_msg)
+            raise FileNotFoundError(error_msg)
+
+        # Verify transcription URL is set
+        if not transcription_url:
+            error_msg = "Whisper endpoint URL is not configured"
+            logger.error(error_msg)
+            raise ValueError(error_msg)
+
+        logger.info(f"Sending request to Whisper endpoint: {transcription_url}")
+
         # Open the audio file and send it in the POST request
-        with open(audio_path, 'rb') as f:
-            files = {'file': (audio_path, f)}
-            response = httpx.post(transcription_url, files=files)
+        with open(audio_path, "rb") as f:
+            files = {"file": (audio_path, f)}
+            try:
+                response = httpx.post(transcription_url, files=files)
+            except httpx.ConnectError as e:
+                error_msg = f"Failed to connect to Whisper endpoint: {str(e)}"
+                logger.error(error_msg)
+                raise RuntimeError(error_msg)
+            except httpx.TimeoutException as e:
+                error_msg = f"Whisper request timed out: {str(e)}"
+                logger.error(error_msg)
+                raise RuntimeError(error_msg)
+            except httpx.RequestError as e:
+                error_msg = f"Whisper request failed: {str(e)}"
+                logger.error(error_msg)
+                raise RuntimeError(error_msg)
 
         # Check if the request was successful
         if response.status_code == 200:
             transcription = response.text.strip()
-            logger.info(f"\nAudio Transcription Response:\n{transcription}")
+            if not transcription:
+                error_msg = "Whisper returned empty transcription"
+                logger.error(error_msg)
+                raise RuntimeError(error_msg)
+            logger.info("Whisper transcription completed successfully")
+            logger.debug(f"Transcription result: {transcription}")
             return transcription
         else:
-            error_message = f"Transcription service returned status code {response.status_code}: {response.text}"
-            logger.info(error_message)
-            raise RuntimeError(error_message)
-
-    except FileNotFoundError:
-        error_message = f"Error: The file '{audio_path}' was not found."
-        logger.info(error_message)
-        raise RuntimeError(error_message)
-
-    except httpx.ConnectError as e:
-        error_message = f"Failed to connect to transcription endpoint: {e}"
-        logger.info(error_message)
-        raise RuntimeError(error_message)
+            error_msg = f"Whisper service error (status {response.status_code}): {response.text}"
+            logger.error(error_msg)
+            raise RuntimeError(error_msg)
 
     except Exception as e:
-        error_message = f"An unexpected error occurred during transcription: {e}"
-        logger.info(error_message)
-        raise RuntimeError(error_message)
+        error_msg = f"Whisper transcription failed: {str(e)}"
+        logger.error(error_msg, exc_info=True)
+        raise RuntimeError(error_msg)
 
 
-
-def scoring_workflow(repo_namespace, repo_name, text, voice_description, device, model, tokenizer, emotion_inference_pipeline):
-    DISCRIMINATOR_FILE_NAME = "discriminator_v1.0.pth"
-    MODEL_PCA_FILE_NAME = "discriminator_pca_v1.0.pkl"
+def scoring_workflow(text, voice_description, device, model, tokenizer):
 
     try:
         # Attempt to retrieve the Whisper API token from the environment variables
         whisper_endpoint = os.environ.get("WHISPER_ENDPOINT")
-        
+
         # Check if the token is None (i.e., not set in the environment)
         if whisper_endpoint is None:
             raise ValueError("WHISPER_ENDPOINT is not set in the environment.")
-        
 
     except Exception as e:
         # Handle the exception (e.g., log the error, notify the user, etc.)
         raise RuntimeError(f"An error occurred getting wishper endpoint url from env: {e}")
-    
 
     try:
         token = os.environ.get("HUGGINGFACE_TOKEN_PRIME")
         if token is None:
             raise ValueError("HUGGINGFACE_TOKEN_PRIME is not set in the environment.")
-        
+
         login(token=token)
     except Exception as e:
         # Handle the exception (e.g., log the error, notify the user, etc.)
         raise RuntimeError(f"An error occurred during hf login: {e}")
-
-    # device = "cuda:0" if torch.cuda.is_available() else "cpu"
-    # logger.info(f"Device selected for computation: {device}")
-
-
-    # Load models
-    # processor, whisper_model = load_whisper_model(device)
-    # model, tokenizer = load_parler_model(repo_namespace, repo_name, device)
 
     # Initialize speaker
     speaker_index = 0
@@ -408,19 +452,18 @@ def scoring_workflow(repo_namespace, repo_name, text, voice_description, device,
 
     with tempfile.TemporaryDirectory() as tmpdirname:
         # Generate audio
-        audio_path = generate_audio(speaker, text, sample_number, model, tokenizer, device, tmpdirname)
-
+        audio_path = generate_audio(
+            speaker, voice_description, text, sample_number, model, tokenizer, device, tmpdirname
+        )
 
         # Process emotion
-        audio_emo_vector = process_emotion(audio_path, emotion_inference_pipeline)
-
+        audio_emo_output = process_emotion(audio_path)
 
         # Transcribe audio
         transcription = transcribe_audio(audio_path)
 
-
     # Validate results
-    if audio_emo_vector is None or audio_emo_vector.size == 0:
+    if audio_emo_output is None or not audio_emo_output.get("raw_scores"):
         raise RuntimeError("Emotion vector is missing or empty.")
     if not transcription.strip():
         raise RuntimeError("Transcription is missing or empty.")
@@ -433,14 +476,17 @@ def scoring_workflow(repo_namespace, repo_name, text, voice_description, device,
         logger.error(f"Failed to calculate Word Error Rate (WER): {e}", exc_info=True)
         raise RuntimeError(f"WER calculation failed: {e}")
 
-    # Calculate similarity score
+    # Detect Expected emotion
     try:
-        score = calculate_human_similarity_score(audio_emo_vector, DISCRIMINATOR_FILE_NAME, MODEL_PCA_FILE_NAME)
-        logger.info(f"Human similarity score calculated: {score}")
+        # score = calculate_human_similarity_score(audio_emo_vector, DISCRIMINATOR_FILE_NAME, MODEL_PCA_FILE_NAME)
+        # logger.info(f"Human similarity score calculated: {score}")
+        detected_emotion = audio_emo_output["top_emotions"][0][0]
+        logger.info(f"Detected Emotion {detected_emotion}")
+
     except Exception as e:
         logger.error(f"Failed to calculate human similarity score: {e}", exc_info=True)
         raise RuntimeError(f"Human similarity score calculation failed.{e}")
-    
+
     try:
         del model
     except NameError:
@@ -450,7 +496,6 @@ def scoring_workflow(repo_namespace, repo_name, text, voice_description, device,
         del tokenizer
     except NameError:
         logger.info("Tokenizer was not defined")
-
 
     try:
         # Force garbage collection before clearing CUDA cache
@@ -474,6 +519,4 @@ def scoring_workflow(repo_namespace, repo_name, text, voice_description, device,
     except Exception as e:
         logger.info(f"Torch distributed cleanup error: {e}")
 
-
-
-    return (score, wer_score)
+    return (detected_emotion, wer_score)
