@@ -147,7 +147,7 @@ def get_tts_score(request: str) -> dict:
     for text, last_user_message, voice_description, top_k_emotions in data:  # Unpack 4 values, ignore top_k_emotions
         try:
             # Detect the emotion in the audio sample and carry out word error rate analysis
-            detected_emotion, wer_score = scoring_workflow(request.repo_namespace, request.repo_name, text, voice_description, device, model, tokenizer)
+            detected_emotion, wer_score = scoring_workflow(text, voice_description, device, model, tokenizer)
 
             expected_emotion = top_k_emotions[0]
 

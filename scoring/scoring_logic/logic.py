@@ -225,9 +225,9 @@ def calculate_wer(reference: str, hypothesis: str, apply_preprocessing: bool = T
     return error_rate
 
 
-def generate_audio(speaker, prompt_text, sample_number, model, tokenizer, device, tempdir):
+def generate_audio(speaker, voice_description, prompt_text, sample_number, model, tokenizer, device, tempdir):
     try:
-        description = speaker["description"]
+        description = voice_description
         speaker_name = speaker["name"]
 
         # Tokenize the text and count tokens
@@ -471,10 +471,8 @@ def transcribe_audio(audio_path, transcription_url=TRANSCRIPTION_URL):
 
 
 def scoring_workflow(
-    repo_namespace, repo_name, text, voice_description, device, model, tokenizer
+    text, voice_description, device, model, tokenizer
 ):
-    DISCRIMINATOR_FILE_NAME = "discriminator_v1.0.pth"
-    MODEL_PCA_FILE_NAME = "discriminator_pca_v1.0.pkl"
 
     try:
         # Attempt to retrieve the Whisper API token from the environment variables
@@ -505,7 +503,7 @@ def scoring_workflow(
 
     with tempfile.TemporaryDirectory() as tmpdirname:
         # Generate audio
-        audio_path = generate_audio(speaker, text, sample_number, model, tokenizer, device, tmpdirname)
+        audio_path = generate_audio(speaker, voice_description, text, sample_number, model, tokenizer, device, tmpdirname)
 
         # Process emotion
         audio_emo_output = process_emotion(audio_path)

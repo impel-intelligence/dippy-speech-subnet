@@ -1,0 +1,20 @@
+{
+    "version": "0.2.0",
+    "configurations": [
+        {
+            "name": "Python: Score TTS",
+            "type": "python",
+            "request": "launch",
+            "program": "${workspaceFolder}/scoring/entrypoint.py",
+            "args": [
+                "tts",
+                "MiraculousSekhmet",
+                "bigband",
+                "default",
+                "17226295660308663618"
+            ],
+            "console": "integratedTerminal",
+            "justMyCode": true
+        }
+    ]
+}
