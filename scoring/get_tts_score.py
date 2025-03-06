@@ -43,10 +43,10 @@ def load_dataset():
 
             sample = dataset.__getitem__(random_index)  # Get the sample using __getitem__
 
-            response, query, description = sample
+            response, query, description, top_k_emotions = sample
     
             # Append the sample tuple to the list
-            sampled_data.append((response, query, description))
+            sampled_data.append((response, query, description, top_k_emotions))
 
     
         """

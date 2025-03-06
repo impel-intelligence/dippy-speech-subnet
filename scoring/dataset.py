@@ -221,6 +221,7 @@ class StreamedSyntheticDataset(Dataset):
             f"{self.dataset[idx]['character_response']}",  # target text
             self.dataset[idx]["last_user_message"],  # last user message
             self.dataset[idx]["voice_description"],  # voice description
+            self.dataset[idx]["top_k_emotions"],  # top k
         )
 
     def sample_dataset(self, n: int, dummy: bool = False):
