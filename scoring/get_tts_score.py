@@ -141,9 +141,6 @@ def get_tts_score(request: str) -> dict:
             else:
                 score = 0
 
-            # # Extract float values from each tensor in the 'scores' list for further processing
-            # float_values_from_tensors = [score.item() for score in base_score]
-
             # Apply weights to the base score based on text properties.
             weighted_score = apply_weights(score, wer_score)
 
