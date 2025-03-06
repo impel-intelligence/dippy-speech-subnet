@@ -146,7 +146,7 @@ def get_tts_score(request: str) -> dict:
     emotion_inference_pipeline = load_emotion()
 
     # Iterate over the data, which contains tuples of text, last user message, and voice description.
-    for text, last_user_message, voice_description in data:
+    for text, last_user_message, voice_description, top_k_emotions in data:  # Unpack 4 values, ignore top_k_emotions
         try:
             # Calculate the base score and wer using the scoring workflow function.
             base_score, wer_score = scoring_workflow(request.repo_namespace, request.repo_name, text, voice_description, device, model, tokenizer, emotion_inference_pipeline)

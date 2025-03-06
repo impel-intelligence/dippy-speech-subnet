@@ -503,10 +503,14 @@ def scoring_workflow(
         logger.error(f"Failed to calculate Word Error Rate (WER): {e}", exc_info=True)
         raise RuntimeError(f"WER calculation failed: {e}")
 
-    # Calculate similarity score
+    # Detect Expected emotion
     try:
-        score = calculate_human_similarity_score(audio_emo_vector, DISCRIMINATOR_FILE_NAME, MODEL_PCA_FILE_NAME)
-        logger.info(f"Human similarity score calculated: {score}")
+        # score = calculate_human_similarity_score(audio_emo_vector, DISCRIMINATOR_FILE_NAME, MODEL_PCA_FILE_NAME)
+        # logger.info(f"Human similarity score calculated: {score}")
+        detected_emotion = audio_emo_vector["top_emotions"][0][0]
+        print(detected_emotion)
+        import pdb; pdb.set_trace()
+
     except Exception as e:
         logger.error(f"Failed to calculate human similarity score: {e}", exc_info=True)
         raise RuntimeError(f"Human similarity score calculation failed.{e}")
