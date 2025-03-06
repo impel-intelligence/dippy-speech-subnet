@@ -28,6 +28,7 @@ def test_load_dataset():
                 logger.info(f"Response: {item[0][:100]}...")  # First 100 chars
                 logger.info(f"Query: {item[1]}")
                 logger.info(f"Description: {item[2][:100]}...")  # First 100 chars
+
                 
     except Exception as e:
         logger.error(f"Error in test_load_dataset: {e}")

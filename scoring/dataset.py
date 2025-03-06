@@ -217,7 +217,6 @@ class StreamedSyntheticDataset(Dataset):
         for m in messages:
             if len(m["content"]) < 1:
                 raise ValueError("empty message content")
-        import pdb; pdb.set_trace()
         return (
             f"{self.dataset[idx]['character_response']}",  # target text
             self.dataset[idx]["last_user_message"],  # last user message
