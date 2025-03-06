@@ -6,7 +6,10 @@ from typing import Any, Dict, List
 from transformers import AutoTokenizer
 from torch.utils.data import Dataset
 import tiktoken
+import requests
 
+from dotenv import load_dotenv
+load_dotenv(override=True)
 
 DATASET_CACHE_DIR = "evalsets"
 hf_token = os.environ.get("HF_TOKEN")
@@ -23,7 +26,7 @@ def prepare_from_hf_dataset(dataset_name: str, partitions: List[str]):
     return partial_data
 
 
-import requests
+
 
 
 DATASET_URL = "https://sn58-dataset.dippy-bittensor-subnet.com/dataset"
@@ -35,22 +38,50 @@ DATASET_API_KEY = "someVerysecretKey"
 VOICES_URL = "https://sn58-dataset.dippy-bittensor-subnet.com"
 USERNAME = os.getenv("VASPI_USERNAME")
 PASSWORD = os.getenv("VASPI_PASSWORD")
+TOKEN = os.getenv("DATA_API_TOKEN")
 
+
+# def get_latest_from_set():
+#     start_date = "20250305"
+#     end_date = "20250311"
+#     url = f"{VOICES_URL}/datasetx?start_date={start_date}&end_date={end_date}"
+
+#     headers = {
+#         "Authorization": "e289886a-fdf0-4cf5-9238-59e7776b641c"
+#     }
+
+#     # Send GET request with Basic Authentication
+#     response = requests.get(
+#         url,
+#         headers
+#     )
+#     response.raise_for_status()  # Raise an error for bad responses
+#     data = response.json().get("all_convos", [])
+
+#     return data
 
 def get_latest_from_set():
-    start_date = "20250201"
-    end_date = "20250204"
-    url = f"{VOICES_URL}/voices?start_date={start_date}&end_date={end_date}"
-   
-    # Send GET request with Basic Authentication
-    response = requests.get(
-        url,
-    )
-    response.raise_for_status()  # Raise an error for bad responses
-    data = response.json().get("all_convos", [])
+    start_date = "20250305"
+    end_date = "20250311"
+    limit = 10  # Matching the curl request
 
-    return data
+    url = f"http://172.179.94.58/datasetx?start_date={start_date}&end_date={end_date}"
 
+    headers = {
+        "Authorization":f"{TOKEN}"
+    }
+ 
+    try:
+        response = requests.get(url, headers=headers)
+        response.raise_for_status()  # Raise an error for HTTP errors
+
+        data = response.json()  # Assuming response is JSON
+        return data.get("all_convos", [])  # Extracting "all_convos" field
+
+    except requests.exceptions.RequestException as e:
+        print(f"Request failed: {e}")
+        return None  # Return None in case of failure
+    
 
 def get_latest_from_file(filter: str = "both", filename: str = "/tmp/dataset.json"):
     import json
@@ -135,10 +166,11 @@ class StreamedSyntheticDataset(Dataset):
         converted_dataset = []
         for data_point in data:
             system_prompt = data_point["system_prompt"]
-            # voice_description = data_point["voice_description"]
+            top_k_emotions = data_point["top_k_emotions"]
+            voice_description = data_point["voice_description"]
           
-            # TEMP REMOVE AND REPLACE WITH ACTUAL ONE API IS READY?
-            voice_description = "Eric's voice is deep and resonant, providing a commanding presence in his speech. A **male voice with an American accent**, his **very low-pitched voice** is captured with crisp clarity. His tone is **authoritative yet slightly monotone**, emphasizing his strong and steady delivery."
+            # # TEMP REMOVE AND REPLACE WITH ACTUAL ONE API IS READY?
+            # voice_description = "Eric's voice is deep and resonant, providing a commanding presence in his speech. A **male voice with an American accent**, his **very low-pitched voice** is captured with crisp clarity. His tone is **authoritative yet slightly monotone**, emphasizing his strong and steady delivery."
             
             messages = [{"role": "system", "content": system_prompt}]
             
@@ -168,6 +200,7 @@ class StreamedSyntheticDataset(Dataset):
                     "messages": messages,
                     "last_user_message": last_user_message,  # get the last user message
                     "character_response": character_response,
+                    "top_k_emotions": top_k_emotions,
                     "voice_description": voice_description
                 }
             )
@@ -184,6 +217,7 @@ class StreamedSyntheticDataset(Dataset):
         for m in messages:
             if len(m["content"]) < 1:
                 raise ValueError("empty message content")
+        import pdb; pdb.set_trace()
         return (
             f"{self.dataset[idx]['character_response']}",  # target text
             self.dataset[idx]["last_user_message"],  # last user message

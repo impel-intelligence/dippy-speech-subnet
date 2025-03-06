@@ -144,54 +144,54 @@ class EmotionMLPRegression(nn.Module):
         return out
 
 
-def calculate_human_similarity_score(audio_emo_vector, model_file_name, pca_file_name):
-    """Calculate the human similarity score based on the audio emotion vector."""
+# def calculate_human_similarity_score(audio_emo_vector, model_file_name, pca_file_name):
+#     """Calculate the human similarity score based on the audio emotion vector."""
 
-    # Ensure the input is a PyTorch tensor
-    if isinstance(audio_emo_vector, np.ndarray):
-        audio_emo_vector = torch.tensor(audio_emo_vector, dtype=torch.float32)
+#     # Ensure the input is a PyTorch tensor
+#     if isinstance(audio_emo_vector, np.ndarray):
+#         audio_emo_vector = torch.tensor(audio_emo_vector, dtype=torch.float32)
 
-    # Initialize the model
-    model = EmotionMLPRegression(input_size=200, hidden_size=512)
+#     # Initialize the model
+#     model = EmotionMLPRegression(input_size=200, hidden_size=512)
 
-    # Load the state dictionary into the model
-    model_path = hf_hub_download(
-        repo_id="DippyAI-Speech/Discriminator",
-        filename=model_file_name,  # Replace with the correct filename if different
-    )
+#     # Load the state dictionary into the model
+#     model_path = hf_hub_download(
+#         repo_id="DippyAI-Speech/Discriminator",
+#         filename=model_file_name,  # Replace with the correct filename if different
+#     )
 
-    # Load the state dictionary into the model
-    pca_model_path = hf_hub_download(
-        repo_id="DippyAI-Speech/PCA", filename=pca_file_name  # Replace with the correct filename if different
-    )
+#     # Load the state dictionary into the model
+#     pca_model_path = hf_hub_download(
+#         repo_id="DippyAI-Speech/PCA", filename=pca_file_name  # Replace with the correct filename if different
+#     )
 
-    state_dict = torch.load(model_path, map_location=torch.device("cpu"))
-    model.load_state_dict(state_dict)
+#     state_dict = torch.load(model_path, map_location=torch.device("cpu"))
+#     model.load_state_dict(state_dict)
 
-    # Move the model to the appropriate device
-    device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-    model.to(device)
+#     # Move the model to the appropriate device
+#     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+#     model.to(device)
 
-    # Set the model to evaluation mode
-    model.eval()
+#     # Set the model to evaluation mode
+#     model.eval()
 
-    # Load the PCA model
-    pca = joblib.load(pca_model_path)
+#     # Load the PCA model
+#     pca = joblib.load(pca_model_path)
 
-    # Ensure the input has the correct shape (batch dimension)
-    if audio_emo_vector.dim() == 1:
-        audio_emo_vector = audio_emo_vector.unsqueeze(0)  # Add batch dimension if needed
+#     # Ensure the input has the correct shape (batch dimension)
+#     if audio_emo_vector.dim() == 1:
+#         audio_emo_vector = audio_emo_vector.unsqueeze(0)  # Add batch dimension if needed
 
-    # Apply PCA transformation and move the tensor to the appropriate device
-    audio_emo_vector_pca = torch.tensor(pca.transform(audio_emo_vector.cpu().numpy()), dtype=torch.float32).to(
-        device
-    )  # Ensure the tensor is on the same device as the model
+#     # Apply PCA transformation and move the tensor to the appropriate device
+#     audio_emo_vector_pca = torch.tensor(pca.transform(audio_emo_vector.cpu().numpy()), dtype=torch.float32).to(
+#         device
+#     )  # Ensure the tensor is on the same device as the model
 
-    # Make a prediction
-    with torch.no_grad():  # Disable gradient calculation for inference
-        score = model(audio_emo_vector_pca)
+#     # Make a prediction
+#     with torch.no_grad():  # Disable gradient calculation for inference
+#         score = model(audio_emo_vector_pca)
 
-    return score
+#     return score
 
 
 def calculate_wer(reference: str, hypothesis: str, apply_preprocessing: bool = True) -> float:
