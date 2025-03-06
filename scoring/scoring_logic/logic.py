@@ -17,7 +17,7 @@ import soundfile as sf
 import torch
 import torch.distributed as dist
 import torch.nn as nn
-from scoring.scoring_logic.emotion_processing import compute_z_scores, extract_emotions, get_top_n_emotions
+from dotenv import load_dotenv
 from huggingface_hub import hf_hub_download, login
 from jiwer import Compose, RemovePunctuation, Strip, ToLowerCase, wer
 from modelscope.pipelines import pipeline
@@ -25,7 +25,8 @@ from modelscope.utils.constant import Tasks
 from parler_tts import ParlerTTSForConditionalGeneration
 from transformers import AutoTokenizer, WhisperForConditionalGeneration, WhisperProcessor
 
-from dotenv import load_dotenv
+from scoring.scoring_logic.emotion_processing import compute_z_scores, extract_emotions, get_top_n_emotions
+
 load_dotenv(override=True)
 
 logger = logging.getLogger(__name__)
@@ -142,56 +143,6 @@ class EmotionMLPRegression(nn.Module):
 
         out = self.fc3(out)
         return out
-
-
-# def calculate_human_similarity_score(audio_emo_vector, model_file_name, pca_file_name):
-#     """Calculate the human similarity score based on the audio emotion vector."""
-
-#     # Ensure the input is a PyTorch tensor
-#     if isinstance(audio_emo_vector, np.ndarray):
-#         audio_emo_vector = torch.tensor(audio_emo_vector, dtype=torch.float32)
-
-#     # Initialize the model
-#     model = EmotionMLPRegression(input_size=200, hidden_size=512)
-
-#     # Load the state dictionary into the model
-#     model_path = hf_hub_download(
-#         repo_id="DippyAI-Speech/Discriminator",
-#         filename=model_file_name,  # Replace with the correct filename if different
-#     )
-
-#     # Load the state dictionary into the model
-#     pca_model_path = hf_hub_download(
-#         repo_id="DippyAI-Speech/PCA", filename=pca_file_name  # Replace with the correct filename if different
-#     )
-
-#     state_dict = torch.load(model_path, map_location=torch.device("cpu"))
-#     model.load_state_dict(state_dict)
-
-#     # Move the model to the appropriate device
-#     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-#     model.to(device)
-
-#     # Set the model to evaluation mode
-#     model.eval()
-
-#     # Load the PCA model
-#     pca = joblib.load(pca_model_path)
-
-#     # Ensure the input has the correct shape (batch dimension)
-#     if audio_emo_vector.dim() == 1:
-#         audio_emo_vector = audio_emo_vector.unsqueeze(0)  # Add batch dimension if needed
-
-#     # Apply PCA transformation and move the tensor to the appropriate device
-#     audio_emo_vector_pca = torch.tensor(pca.transform(audio_emo_vector.cpu().numpy()), dtype=torch.float32).to(
-#         device
-#     )  # Ensure the tensor is on the same device as the model
-
-#     # Make a prediction
-#     with torch.no_grad():  # Disable gradient calculation for inference
-#         score = model(audio_emo_vector_pca)
-
-#     return score
 
 
 def calculate_wer(reference: str, hypothesis: str, apply_preprocessing: bool = True) -> float:
@@ -415,7 +366,7 @@ def transcribe_audio(audio_path, transcription_url=TRANSCRIPTION_URL):
         RuntimeError: If the transcription fails due to connection issues or other errors.
     """
     logger.info(f"Starting Whisper transcription for audio: {audio_path}")
-    
+
     try:
         # Verify audio file exists
         if not os.path.exists(audio_path):
@@ -430,7 +381,7 @@ def transcribe_audio(audio_path, transcription_url=TRANSCRIPTION_URL):
             raise ValueError(error_msg)
 
         logger.info(f"Sending request to Whisper endpoint: {transcription_url}")
-        
+
         # Open the audio file and send it in the POST request
         with open(audio_path, "rb") as f:
             files = {"file": (audio_path, f)}
@@ -470,9 +421,7 @@ def transcribe_audio(audio_path, transcription_url=TRANSCRIPTION_URL):
         raise RuntimeError(error_msg)
 
 
-def scoring_workflow(
-    text, voice_description, device, model, tokenizer
-):
+def scoring_workflow(text, voice_description, device, model, tokenizer):
 
     try:
         # Attempt to retrieve the Whisper API token from the environment variables
@@ -503,7 +452,9 @@ def scoring_workflow(
 
     with tempfile.TemporaryDirectory() as tmpdirname:
         # Generate audio
-        audio_path = generate_audio(speaker, voice_description, text, sample_number, model, tokenizer, device, tmpdirname)
+        audio_path = generate_audio(
+            speaker, voice_description, text, sample_number, model, tokenizer, device, tmpdirname
+        )
 
         # Process emotion
         audio_emo_output = process_emotion(audio_path)
@@ -512,7 +463,7 @@ def scoring_workflow(
         transcription = transcribe_audio(audio_path)
 
     # Validate results
-    if audio_emo_output is None or not audio_emo_output.get('raw_scores'):
+    if audio_emo_output is None or not audio_emo_output.get("raw_scores"):
         raise RuntimeError("Emotion vector is missing or empty.")
     if not transcription.strip():
         raise RuntimeError("Transcription is missing or empty.")

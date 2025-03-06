@@ -1,29 +1,25 @@
-import random
 import logging
+import random
 
 import numpy as np
+import torch
+import torch.distributed as dist
+import torch.nn as nn
+from modelscope.pipelines import pipeline
+from modelscope.utils.constant import Tasks
+from parler_tts import ParlerTTSForConditionalGeneration
+from transformers import AutoTokenizer, WhisperForConditionalGeneration, WhisperProcessor
 
 from scoring.common import EVALUATION_DATASET_SAMPLE_SIZE, MAX_GENERATION_LENGTH, MAX_SEQ_LEN
 from scoring.dataset import StreamedSyntheticDataset
 from scoring.scoring_logic.logic import scoring_workflow
 
-import torch
-import torch.nn as nn
-import torch.distributed as dist
-
-from parler_tts import ParlerTTSForConditionalGeneration
-from modelscope.pipelines import pipeline
-from modelscope.utils.constant import Tasks
-from transformers import AutoTokenizer, WhisperForConditionalGeneration, WhisperProcessor
-
-
 logger = logging.getLogger(__name__)  # Create a logger for this module
 
 
 def load_dataset():
-    
-    NUMBER_OF_SAMPLES = 1
 
+    NUMBER_OF_SAMPLES = 40
 
     print("Sampling dataset")
     try:
@@ -31,24 +27,21 @@ def load_dataset():
             max_input_len=MAX_SEQ_LEN - MAX_GENERATION_LENGTH - 200,
             mock=True,
         )
-        
-        #sampled_data = dataset.sample_dataset(EVALUATION_DATASET_SAMPLE_SIZE, dummy=True)
-        #sampled_data = dataset.__getitem__(5)
+
         sampled_data = []
         for _ in range(NUMBER_OF_SAMPLES):
 
             _CURRENT_EVALUATION_DATASET_SAMPLE_SIZE = len(dataset.dataset)
 
-            random_index = random.randint(0, _CURRENT_EVALUATION_DATASET_SAMPLE_SIZE  - 1)  # Generate a random index
+            random_index = random.randint(0, _CURRENT_EVALUATION_DATASET_SAMPLE_SIZE - 1)  # Generate a random index
 
             sample = dataset.__getitem__(random_index)  # Get the sample using __getitem__
 
             response, query, description, top_k_emotions = sample
-    
+
             # Append the sample tuple to the list
             sampled_data.append((response, query, description, top_k_emotions))
 
-    
         """
         shape of sampled_data: a list structured like the following:
         [
@@ -108,15 +101,6 @@ def load_parler_model(repo_namespace, repo_name, device):
     except Exception as e:
         logger.error("Failed to load Parler TTS model", exc_info=True)
         raise RuntimeError(f"Model loading failed: {e}")
-
-# def load_emotion():
-#     try:
-#         inference_pipeline = pipeline(task=Tasks.emotion_recognition, model="iic/emotion2vec_plus_large")
-#         logger.info("Emotion2Vector Model initialized successfully.")
-#         return inference_pipeline
-#     except Exception as e:
-#         logger.error(f"Failed to process audio for Emotion2Vector: {e}", exc_info=True)
-#         raise RuntimeError("Emotion2Vector processing failed.")
 
 
 def get_tts_score(request: str) -> dict:
