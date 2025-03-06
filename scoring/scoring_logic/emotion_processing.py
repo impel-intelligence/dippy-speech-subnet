@@ -1,9 +1,13 @@
 from collections import defaultdict
 import json
 import statistics
+import logging
 from typing import Dict, List, Tuple, Union
 
+logger = logging.getLogger(__name__)
+
 def extract_emotions(data: Union[Dict, List]) -> Dict[str, float]:
+    logger.info("Starting emotion extraction")
     """
     Extracts and aggregates emotion scores from the JSON data.
 
@@ -32,6 +36,7 @@ def extract_emotions(data: Union[Dict, List]) -> Dict[str, float]:
             predictions = item["predictions"]
         else:
             predictions = []
+            logger.warning("No predictions found in data")
 
         # Iterate through all predictions and sum the emotion scores.
         for entry in predictions:
@@ -50,6 +55,7 @@ def extract_emotions(data: Union[Dict, List]) -> Dict[str, float]:
 
 
 def get_top_n_emotions(emotion_scores: Dict[str, float], n: int = 3) -> List[Tuple[str, float]]:
+    logger.info("Getting top emotions")
     """
     Returns the top n emotions from the aggregated emotion_scores dictionary.
 
@@ -64,6 +70,7 @@ def get_top_n_emotions(emotion_scores: Dict[str, float], n: int = 3) -> List[Tup
 
 
 def compute_z_scores(emotion_scores: Dict[str, float]) -> Dict[str, float]:
+    logger.info("Computing z-scores")
     """
     Computes the z-score for each emotion score.
 
@@ -75,14 +82,19 @@ def compute_z_scores(emotion_scores: Dict[str, float]) -> Dict[str, float]:
     """
     scores = list(emotion_scores.values())
     if not scores:
+        logger.warning("No emotion scores to compute z-scores")
         return {}
     
     try:
         mean_val = statistics.mean(scores)
         std_val = statistics.stdev(scores)
         if std_val == 0:
+            logger.warning("Standard deviation is 0, returning zero z-scores")
             return {emotion: 0 for emotion in emotion_scores}
+            
         return {emotion: (score - mean_val) / std_val for emotion, score in emotion_scores.items()}
-    except statistics.StatisticsError:
+        
+    except statistics.StatisticsError as e:
+        logger.warning("Statistics error: single value, returning zero scores")
         # Handle case where there's only one value (can't compute stdev)
         return {emotion: 0 for emotion in emotion_scores}

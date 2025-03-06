@@ -267,7 +267,7 @@ def generate_audio(speaker, prompt_text, sample_number, model, tokenizer, device
         raise RuntimeError(f"Audio generation failed. {e}")
 
 
-def process_emotion(audio_path, emotion_inference_pipeline):
+def process_emotion(audio_path):
     try:
         # Get API key from environment
         api_key = os.environ.get("HUME_API_KEY")
@@ -414,40 +414,64 @@ def transcribe_audio(audio_path, transcription_url=TRANSCRIPTION_URL):
     Raises:
         RuntimeError: If the transcription fails due to connection issues or other errors.
     """
+    logger.info(f"Starting Whisper transcription for audio: {audio_path}")
+    
     try:
+        # Verify audio file exists
+        if not os.path.exists(audio_path):
+            error_msg = f"Audio file not found at path: {audio_path}"
+            logger.error(error_msg)
+            raise FileNotFoundError(error_msg)
+
+        # Verify transcription URL is set
+        if not transcription_url:
+            error_msg = "Whisper endpoint URL is not configured"
+            logger.error(error_msg)
+            raise ValueError(error_msg)
+
+        logger.info(f"Sending request to Whisper endpoint: {transcription_url}")
+        
         # Open the audio file and send it in the POST request
         with open(audio_path, "rb") as f:
             files = {"file": (audio_path, f)}
-            response = httpx.post(transcription_url, files=files)
+            try:
+                response = httpx.post(transcription_url, files=files)
+            except httpx.ConnectError as e:
+                error_msg = f"Failed to connect to Whisper endpoint: {str(e)}"
+                logger.error(error_msg)
+                raise RuntimeError(error_msg)
+            except httpx.TimeoutException as e:
+                error_msg = f"Whisper request timed out: {str(e)}"
+                logger.error(error_msg)
+                raise RuntimeError(error_msg)
+            except httpx.RequestError as e:
+                error_msg = f"Whisper request failed: {str(e)}"
+                logger.error(error_msg)
+                raise RuntimeError(error_msg)
 
         # Check if the request was successful
         if response.status_code == 200:
             transcription = response.text.strip()
-            logger.info(f"\nAudio Transcription Response:\n{transcription}")
+            if not transcription:
+                error_msg = "Whisper returned empty transcription"
+                logger.error(error_msg)
+                raise RuntimeError(error_msg)
+            logger.info("Whisper transcription completed successfully")
+            logger.debug(f"Transcription result: {transcription}")
             return transcription
         else:
-            error_message = f"Transcription service returned status code {response.status_code}: {response.text}"
-            logger.info(error_message)
-            raise RuntimeError(error_message)
-
-    except FileNotFoundError:
-        error_message = f"Error: The file '{audio_path}' was not found."
-        logger.info(error_message)
-        raise RuntimeError(error_message)
-
-    except httpx.ConnectError as e:
-        error_message = f"Failed to connect to transcription endpoint: {e}"
-        logger.info(error_message)
-        raise RuntimeError(error_message)
+            error_msg = f"Whisper service error (status {response.status_code}): {response.text}"
+            logger.error(error_msg)
+            raise RuntimeError(error_msg)
 
     except Exception as e:
-        error_message = f"An unexpected error occurred during transcription: {e}"
-        logger.info(error_message)
-        raise RuntimeError(error_message)
+        error_msg = f"Whisper transcription failed: {str(e)}"
+        logger.error(error_msg, exc_info=True)
+        raise RuntimeError(error_msg)
 
 
 def scoring_workflow(
-    repo_namespace, repo_name, text, voice_description, device, model, tokenizer, emotion_inference_pipeline
+    repo_namespace, repo_name, text, voice_description, device, model, tokenizer
 ):
     DISCRIMINATOR_FILE_NAME = "discriminator_v1.0.pth"
     MODEL_PCA_FILE_NAME = "discriminator_pca_v1.0.pkl"
@@ -484,13 +508,13 @@ def scoring_workflow(
         audio_path = generate_audio(speaker, text, sample_number, model, tokenizer, device, tmpdirname)
 
         # Process emotion
-        audio_emo_vector = process_emotion(audio_path, emotion_inference_pipeline)
+        audio_emo_output = process_emotion(audio_path)
 
         # Transcribe audio
         transcription = transcribe_audio(audio_path)
 
     # Validate results
-    if audio_emo_vector is None or audio_emo_vector.size == 0:
+    if audio_emo_output is None or not audio_emo_output.get('raw_scores'):
         raise RuntimeError("Emotion vector is missing or empty.")
     if not transcription.strip():
         raise RuntimeError("Transcription is missing or empty.")
@@ -507,9 +531,8 @@ def scoring_workflow(
     try:
         # score = calculate_human_similarity_score(audio_emo_vector, DISCRIMINATOR_FILE_NAME, MODEL_PCA_FILE_NAME)
         # logger.info(f"Human similarity score calculated: {score}")
-        detected_emotion = audio_emo_vector["top_emotions"][0][0]
-        print(detected_emotion)
-        import pdb; pdb.set_trace()
+        detected_emotion = audio_emo_output["top_emotions"][0][0]
+        logger.info(f"Detected Emotion {detected_emotion}")
 
     except Exception as e:
         logger.error(f"Failed to calculate human similarity score: {e}", exc_info=True)
@@ -547,4 +570,4 @@ def scoring_workflow(
     except Exception as e:
         logger.info(f"Torch distributed cleanup error: {e}")
 
-    return (score, wer_score)
+    return (detected_emotion, wer_score)
