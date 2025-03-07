@@ -26,30 +26,54 @@ def prepare_from_hf_dataset(dataset_name: str, partitions: List[str]):
 import requests
 
 
-DATASET_URL = "https://sn58-dataset.dippy-bittensor-subnet.com/dataset"
+# DATASET_URL = "https://sn58-dataset.dippy-bittensor-subnet.com/dataset"
 
 # DATASET_API_KEY = os.environ.get("DATASET_API_KEY", "dippy")
 DATASET_API_KEY = "someVerysecretKey"
 
 # Authentication
-VOICES_URL = "https://sn58-dataset.dippy-bittensor-subnet.com"
+# VOICES_URL = "https://sn58-dataset.dippy-bittensor-subnet.com"
+VOICES_URL = "http://172.179.94.58"
 USERNAME = os.getenv("VASPI_USERNAME")
 PASSWORD = os.getenv("VASPI_PASSWORD")
+TOKEN = os.getenv("DATA_API_TOKEN")
+
+# def get_latest_from_set():
+#     start_date = "20250201"
+#     end_date = "20250204"
+#     url = f"{VOICES_URL}/voices?start_date={start_date}&end_date={end_date}"
+   
+#     # Send GET request with Basic Authentication
+#     response = requests.get(
+#         url,
+#     )
+#     response.raise_for_status()  # Raise an error for bad responses
+#     data = response.json().get("all_convos", [])
+
+#     return data
 
 
 def get_latest_from_set():
-    start_date = "20250201"
-    end_date = "20250204"
-    url = f"{VOICES_URL}/voices?start_date={start_date}&end_date={end_date}"
-   
-    # Send GET request with Basic Authentication
-    response = requests.get(
-        url,
-    )
-    response.raise_for_status()  # Raise an error for bad responses
-    data = response.json().get("all_convos", [])
+    start_date = "20250305"
+    end_date = "20250311"
+    limit = 10  # Matching the curl request
 
-    return data
+    url = f"http://172.179.94.58/voices?start_date={start_date}&end_date={end_date}"
+
+    headers = {
+        "Authorization":f"{TOKEN}"
+    }
+ 
+    try:
+        response = requests.get(url, headers=headers)
+        response.raise_for_status()  # Raise an error for HTTP errors
+
+        data = response.json()  # Assuming response is JSON
+        return data.get("all_convos", [])  # Extracting "all_convos" field
+
+    except requests.exceptions.RequestException as e:
+        print(f"Request failed: {e}")
+        return None  # Return None in case of failure
 
 
 def get_latest_from_file(filter: str = "both", filename: str = "/tmp/dataset.json"):
