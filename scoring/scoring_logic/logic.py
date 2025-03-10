@@ -185,10 +185,10 @@ def generate_audio(speaker, voice_description, prompt_text, sample_number, model
         encoded = tokenizer(prompt_text, return_tensors="pt")
         token_count = encoded.input_ids.shape[1]
 
-        # Check if the token count exceeds 100
-        if token_count > 100:
+        # Check if the token count exceeds 200
+        if token_count > 200:
             # Truncate while keeping meaning
-            truncated_tokens = encoded.input_ids[0][:100]  # Keep only first 100 tokens
+            truncated_tokens = encoded.input_ids[0][:200]  # Keep only first 200 tokens
             prompt_text = tokenizer.decode(truncated_tokens, skip_special_tokens=True)
 
         # Tokenize the description and prompt
@@ -259,7 +259,7 @@ def submit_hume_ai_job(api_key: str, file_path: str, models: Optional[Dict[str, 
     """
     # Default models configuration if not provided
     if models is None:
-        models = {"burst": {}, "prosody": {"window": {"length": 180}}}
+        models = {"burst": {}, "prosody": {"window": {"length": 60}}}
 
     # Prepare the POST request
     post_response = requests.post(
