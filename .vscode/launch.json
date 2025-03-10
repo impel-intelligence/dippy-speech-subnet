@@ -8,13 +8,17 @@
             "program": "${workspaceFolder}/scoring/entrypoint.py",
             "args": [
                 "tts",
-                "MiraculousSekhmet",
-                "bigband",
+                "parler-tts-mini-expresso",
+                "parler-tts",
                 "default",
                 "17226295660308663618"
             ],
             "console": "integratedTerminal",
-            "justMyCode": true
+            "justMyCode": true,
+            "python": "${workspaceFolder}/.venv/bin/python",
+            "env": {
+                "PYTHONPATH": "${workspaceFolder}"
+            }
         }
     ]
 }

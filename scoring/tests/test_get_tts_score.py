@@ -16,33 +16,38 @@ def test_load_dataset():
         
         # Test data structure and content
         for i, item in enumerate(data):
-            # Test tuple structure
-            assert isinstance(item, tuple), f"Item {i} should be a tuple, but got {type(item)}"
-            assert len(item) == 4, f"Item {i} should have 4 elements, but got {len(item)}"
+            # Test dictionary structure
+            assert isinstance(item, dict), f"Item {i} should be a dictionary, but got {type(item)}"
+            required_keys = ["target_text", "last_user_message", "voice_description", "character_profile", "emotional_text"]
+            assert all(key in item for key in required_keys), f"Item {i} missing required keys. Required: {required_keys}, Got: {item.keys()}"
             
-            # Test response
-            assert isinstance(item[0], str), f"Response in item {i} should be string, but got {type(item[0])}"
-            assert len(item[0].strip()) > 0, f"Response in item {i} should not be empty"
+            # Test target_text (response)
+            assert isinstance(item["target_text"], str), f"Response in item {i} should be string, but got {type(item['target_text'])}"
+            assert len(item["target_text"].strip()) > 0, f"Response in item {i} should not be empty"
             
-            # Test query
-            assert isinstance(item[1], str), f"Query in item {i} should be string, but got {type(item[1])}"
-            assert len(item[1].strip()) > 0, f"Query in item {i} should not be empty"
+            # Test last_user_message (query)
+            assert isinstance(item["last_user_message"], str), f"Query in item {i} should be string, but got {type(item['last_user_message'])}"
+            assert len(item["last_user_message"].strip()) > 0, f"Query in item {i} should not be empty"
             
-            # Test description
-            assert isinstance(item[2], str), f"Description in item {i} should be string, but got {type(item[2])}"
-            assert len(item[2].strip()) > 0, f"Description in item {i} should not be empty"
-         
+            # Test voice_description
+            assert isinstance(item["voice_description"], str), f"Description in item {i} should be string, but got {type(item['voice_description'])}"
+            assert len(item["voice_description"].strip()) > 0, f"Description in item {i} should not be empty"
             
-            # Test emotions
-            assert isinstance(item[3], list), f"Emotions in item {i} should be a list, but got {type(item[3])}"
+            # Test character_profile
+            assert isinstance(item["character_profile"], dict), f"Character profile in item {i} should be a dictionary, but got {type(item['character_profile'])}"
+            
+            # Test emotional_text
+            assert isinstance(item["emotional_text"], list), f"Emotional text in item {i} should be a list, but got {type(item['emotional_text'])}"
+            assert len(item["emotional_text"]) > 0, f"Emotional text in item {i} should not be empty"
             
             # Log sample information for visibility
             if i < 2:
                 logger.info(f"\nItem {i+1}:")
-                logger.info(f"Response: {item[0][:100]}...")
-                logger.info(f"Query: {item[1]}")
-                logger.info(f"Description: {item[2][:100]}...")
-                logger.info(f"top_k_emotions: {item[3]}")
+                logger.info(f"Response: {item['target_text'][:100]}...")
+                logger.info(f"Query: {item['last_user_message']}")
+                logger.info(f"Description: {item['voice_description'][:100]}...")
+                logger.info(f"Character Profile: {item['character_profile']}")
+                logger.info(f"Emotional Text: {item['emotional_text']}")
                 
         logger.info(f"Successfully validated dataset with {len(data)} samples")
                 

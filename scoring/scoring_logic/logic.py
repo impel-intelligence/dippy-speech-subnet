@@ -235,7 +235,7 @@ def process_emotion(audio_path):
         z_scores = compute_z_scores(emotion_scores=emotion_scores)
 
         # Get top emotions
-        top_emotions = get_top_n_emotions(emotion_scores=emotion_scores, n=1)
+        top_emotions = get_top_n_emotions(emotion_scores=emotion_scores, n=5)
 
         return {"raw_scores": dict(emotion_scores), "z_scores": z_scores, "top_emotions": top_emotions}
 

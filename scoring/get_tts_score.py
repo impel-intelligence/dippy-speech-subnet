@@ -19,7 +19,7 @@ logger = logging.getLogger(__name__)  # Create a logger for this module
 
 def load_dataset():
 
-    NUMBER_OF_SAMPLES = 40
+    NUMBER_OF_SAMPLES = 1
 
     print("Sampling dataset")
     try:
@@ -37,10 +37,20 @@ def load_dataset():
 
             sample = dataset.__getitem__(random_index)  # Get the sample using __getitem__
 
-            response, query, description, top_k_emotions = sample
-
-            # Append the sample tuple to the list
-            sampled_data.append((response, query, description, top_k_emotions))
+            # response, query, description, character_profile = sample
+            response = sample['target_text']
+            query = sample["last_user_message"]
+            voice_description = sample["voice_description"]
+            character_profile = sample['character_profile']
+            emotional_text = sample["emotional_text"]
+            # Append the sample dictionary to the list
+            sampled_data.append({
+                "target_text": response,
+                "last_user_message": query,
+                "voice_description": voice_description,
+                "character_profile": character_profile,
+                "emotional_text": emotional_text
+            })
 
         """
         shape of sampled_data: a list structured like the following:
@@ -128,18 +138,26 @@ def get_tts_score(request: str) -> dict:
     # emotion_inference_pipeline = load_emotion()
 
     # Iterate over the data, which contains tuples of text, last user message, and voice description.
-    for text, last_user_message, voice_description, top_k_emotions in data:  # Unpack 4 values, ignore top_k_emotions
+    for item in data:
+        text = item["target_text"]
+        last_user_message = item["last_user_message"]
+        voice_description = item["voice_description"]
+        character_profile = item["character_profile"]
+        emotional_text = item["emotional_text"][0]
         try:
             # Detect the emotion in the audio sample and carry out word error rate analysis
-            detected_emotion, wer_score = scoring_workflow(text, voice_description, device, model, tokenizer)
+            detected_emotion, wer_score = scoring_workflow(emotional_text, voice_description, device, model, tokenizer)
 
-            expected_emotion = top_k_emotions[0]
+            expected_emotion = character_profile["selected_emotion"]
 
             # Check if the expected emotion matches the detected emotion currently just one emotion can be more in the future
             if detected_emotion.casefold() == expected_emotion.casefold():
                 score = 1
             else:
                 score = 0
+
+
+            logger.info(f"Expected: {expected_emotion} - Dectected: {detected_emotion}")
 
             # Apply weights to the base score based on text properties.
             weighted_score = apply_weights(score, wer_score)

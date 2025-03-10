@@ -20,7 +20,7 @@ def test_hume_integration():
     try:
         # Process the audio file
         logger.info(f"Processing audio file: {test_audio_path}")
-        results = process_emotion(test_audio_path, emotion_inference_pipeline=None)
+        results = process_emotion(test_audio_path)
         
         # Validate results structure
         assert isinstance(results, dict), "Results should be a dictionary"

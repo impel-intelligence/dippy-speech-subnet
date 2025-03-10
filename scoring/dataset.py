@@ -61,9 +61,8 @@ TOKEN = os.getenv("DATA_API_TOKEN")
 #     return data
 
 def get_latest_from_set():
-    start_date = "20250305"
-    end_date = "20250311"
-    limit = 10  # Matching the curl request
+    start_date = "20250310"
+    end_date = "20250315"
 
     url = f"http://172.179.94.58/datasetx?start_date={start_date}&end_date={end_date}"
 
@@ -166,7 +165,8 @@ class StreamedSyntheticDataset(Dataset):
         converted_dataset = []
         for data_point in data:
             system_prompt = data_point["system_prompt"]
-            top_k_emotions = data_point["top_k_emotions"]
+            character_profile = data_point["character_profile"]
+            emotional_text = data_point["emotional_text"]
             voice_description = data_point["voice_description"]
           
             # # TEMP REMOVE AND REPLACE WITH ACTUAL ONE API IS READY?
@@ -200,7 +200,8 @@ class StreamedSyntheticDataset(Dataset):
                     "messages": messages,
                     "last_user_message": last_user_message,  # get the last user message
                     "character_response": character_response,
-                    "top_k_emotions": top_k_emotions,
+                    "character_profile": character_profile,
+                    "emotional_text": emotional_text,
                     "voice_description": voice_description
                 }
             )
@@ -217,12 +218,21 @@ class StreamedSyntheticDataset(Dataset):
         for m in messages:
             if len(m["content"]) < 1:
                 raise ValueError("empty message content")
-        return (
-            f"{self.dataset[idx]['character_response']}",  # target text
-            self.dataset[idx]["last_user_message"],  # last user message
-            self.dataset[idx]["voice_description"],  # voice description
-            self.dataset[idx]["top_k_emotions"],  # top k
-        )
+        # return (
+        #     f"{self.dataset[idx]['character_response']}",  # target text
+        #     self.dataset[idx]["last_user_message"],  # last user message
+        #     self.dataset[idx]["voice_description"],  # voice description
+        #     self.dataset[idx]["character_profile"],  # top k
+        #     self.dataset[idx]["emotional_text"],
+        # )
+        return {
+            "target_text": f"{self.dataset[idx]['character_response']}",
+            "last_user_message": self.dataset[idx]["last_user_message"],
+            "voice_description": self.dataset[idx]["voice_description"],
+            "character_profile": self.dataset[idx]["character_profile"],
+            "emotional_text": self.dataset[idx]["emotional_text"],
+        }
+
 
     def sample_dataset(self, n: int, dummy: bool = False):
         if dummy:
