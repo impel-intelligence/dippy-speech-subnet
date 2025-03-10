@@ -235,7 +235,7 @@ def process_emotion(audio_path):
         z_scores = compute_z_scores(emotion_scores=emotion_scores)
 
         # Get top emotions
-        top_emotions = get_top_n_emotions(emotion_scores=emotion_scores, n=5)
+        top_emotions = get_top_n_emotions(emotion_scores=emotion_scores, n=3)
 
         return {"raw_scores": dict(emotion_scores), "z_scores": z_scores, "top_emotions": top_emotions}
 
@@ -259,7 +259,7 @@ def submit_hume_ai_job(api_key: str, file_path: str, models: Optional[Dict[str, 
     """
     # Default models configuration if not provided
     if models is None:
-        models = {"burst": {}, "prosody": {"window": {"length": 10}}}
+        models = {"burst": {}, "prosody": {"window": {"length": 180}}}
 
     # Prepare the POST request
     post_response = requests.post(
@@ -480,8 +480,8 @@ def scoring_workflow(text, voice_description, device, model, tokenizer):
     try:
         # score = calculate_human_similarity_score(audio_emo_vector, DISCRIMINATOR_FILE_NAME, MODEL_PCA_FILE_NAME)
         # logger.info(f"Human similarity score calculated: {score}")
-        detected_emotion = audio_emo_output["top_emotions"][0][0]
-        logger.info(f"Detected Emotion {detected_emotion}")
+        # detected_emotions = audio_emo_output["top_emotions"][0][0]
+        raw_emotion_scores = audio_emo_output["raw_scores"]
 
     except Exception as e:
         logger.error(f"Failed to calculate human similarity score: {e}", exc_info=True)
@@ -519,4 +519,4 @@ def scoring_workflow(text, voice_description, device, model, tokenizer):
     except Exception as e:
         logger.info(f"Torch distributed cleanup error: {e}")
 
-    return (detected_emotion, wer_score)
+    return (raw_emotion_scores, wer_score)

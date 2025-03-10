@@ -146,21 +146,23 @@ def get_tts_score(request: str) -> dict:
         emotional_text = item["emotional_text"][0]
         try:
             # Detect the emotion in the audio sample and carry out word error rate analysis
-            detected_emotion, wer_score = scoring_workflow(emotional_text, voice_description, device, model, tokenizer)
+            raw_emotion_score, wer_score = scoring_workflow(emotional_text, voice_description, device, model, tokenizer)
 
             expected_emotion = character_profile["selected_emotion"]
 
+            detected_emotion_score = raw_emotion_score[expected_emotion]
+
             # Check if the expected emotion matches the detected emotion currently just one emotion can be more in the future
-            if detected_emotion.casefold() == expected_emotion.casefold():
-                score = 1
-            else:
-                score = 0
+            # if detected_emotion.casefold() == expected_emotion.casefold():
+            #     score = 1
+            # else:
+            #     score = 0
 
 
-            logger.info(f"Expected: {expected_emotion} - Dectected: {detected_emotion}")
+            logger.info(f"Expected Emotion: {expected_emotion} - Dectected Score: {detected_emotion_score}")
 
             # Apply weights to the base score based on text properties.
-            weighted_score = apply_weights(score, wer_score)
+            weighted_score = apply_weights(detected_emotion_score, wer_score)
 
             # Append the weighted score to the scores list.
             scores.append(weighted_score)
