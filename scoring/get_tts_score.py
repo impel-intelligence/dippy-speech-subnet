@@ -19,7 +19,7 @@ logger = logging.getLogger(__name__)  # Create a logger for this module
 
 def load_dataset():
 
-    NUMBER_OF_SAMPLES = 5
+    NUMBER_OF_SAMPLES = 40
 
     print("Sampling dataset")
     try:
@@ -123,21 +123,23 @@ def get_tts_score(request: str) -> dict:
 
     # Load the dataset containing input data for scoring.
     data = load_dataset()
-    # Initialize an empty list to store scores for each processed text.
-    scores = []
-    # Initialize the result dictionary with a default final score of 0.
+    import pandas as pd
+    
+    # Initialize lists to store all metrics
+    all_data = {
+        'Expected_Emotion': [],
+        'Detected_Emotion_Score': [],
+        'WER_Score': [],
+        'Weighted_Score': []
+    }
+    scores = []  # Keep this for final score calculation
     result = {"final_score": 0}
-    # # Define the weights for scoring, with 'text_length' having a default weight of 1.
-    # weights = {"text_length": 1}
 
     device = "cuda:0" if torch.cuda.is_available() else "cpu"
     logger.info("Initializing TTS scoring")
 
     model, tokenizer = load_parler_model(request.repo_namespace, request.repo_name, device)
 
-    # emotion_inference_pipeline = load_emotion()
-
-    # Iterate over the data, which contains tuples of text, last user message, and voice description.
     for item in data:
         text = item["target_text"]
         last_user_message = item["last_user_message"]
@@ -150,7 +152,7 @@ def get_tts_score(request: str) -> dict:
 
             expected_emotion = character_profile["selected_emotion"]
 
-            detected_emotion_score = raw_emotion_score[expected_emotion]
+            detected_emotion_score = raw_emotion_score.get(expected_emotion, 0)
 
             # Check if the expected emotion matches the detected emotion currently just one emotion can be more in the future
             # if detected_emotion.casefold() == expected_emotion.casefold():
@@ -164,7 +166,13 @@ def get_tts_score(request: str) -> dict:
             # Apply weights to the base score based on text properties.
             weighted_score = apply_weights(detected_emotion_score, wer_score)
 
-            # Append the weighted score to the scores list.
+            # Collect all metrics
+            all_data['Expected_Emotion'].append(expected_emotion)
+            all_data['Detected_Emotion_Score'].append(detected_emotion_score)
+            all_data['WER_Score'].append(wer_score)
+            all_data['Weighted_Score'].append(weighted_score)
+            
+            # Keep this for final score calculation
             scores.append(weighted_score)
 
         # Catch any exceptions that occur during score calculation.
@@ -173,11 +181,19 @@ def get_tts_score(request: str) -> dict:
             logger.error("Error calculating score", exc_info=True)
             result["error"] = str(e)
 
-    # Calculate the average score after the loop completes.
+    # Write all collected data to CSV
     if scores:
+        # Create DataFrame with all collected data
+        df = pd.DataFrame(all_data)
+        df.to_csv('scores_per_run_expresso_parler.csv', index=False)
+
+        # Calculate the average score
         clipped_scores = np.clip(scores, 0, 1)
         mean_value = float(np.mean(clipped_scores))
         result["final_score"] = mean_value
+
+        df = pd.DataFrame({'Final_Score_Expresso': [mean_value]})
+        df.to_csv('final_score_expresso_parler.csv', index=False)
 
     # Return the final result dictionary containing the score and any errors.
     return result
