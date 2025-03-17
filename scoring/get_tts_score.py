@@ -142,7 +142,7 @@ def get_tts_score(request: str) -> dict:
     device = "cuda:0" if torch.cuda.is_available() else "cpu"
     logger.info(f"Device selected for computation: {device}")
 
-    model, tokenizer = load_parler_model(request.repo_namespace, request.repo_name, device)
+    # model, tokenizer = load_parler_model(request.repo_namespace, request.repo_name, device)
 
     # emotion_inference_pipeline = load_emotion()
     config = ParlerTTSConfig.from_pretrained(f"{request.repo_namespace}/{request.repo_name}")
@@ -154,7 +154,7 @@ def get_tts_score(request: str) -> dict:
     for text, last_user_message, voice_description in data:
         try:
             # Calculate the base score and wer using the scoring workflow function.
-            base_score, wer_score = scoring_workflow(request.repo_namespace, request.repo_name, text, voice_description, device, model, tokenizer, emotion_inference_pipeline)
+            base_score, wer_score = scoring_workflow(request.repo_namespace, request.repo_name, text, voice_description, device, model, tokenizer, config, feature_extractor)
 
             # Extract float values from each tensor in the 'scores' list for further processing
             float_values_from_tensors = [score.item() for score in base_score]
