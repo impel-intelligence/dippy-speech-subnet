@@ -17,7 +17,7 @@ logger = logging.getLogger(__name__)  # Create a logger for this module
 
 def load_dataset():
 
-    NUMBER_OF_SAMPLES = 1
+    NUMBER_OF_SAMPLES = 10
 
     print("Sampling dataset")
     try:
@@ -145,7 +145,7 @@ def get_tts_score(request: str) -> dict:
 
     # Initialize ElevenLabs client
     available_voices = initialize_elevenlabs_client()
-
+    import pandas as pd
     # Iterate over the data, which contains tuples of text, last user message, and voice description.
     for item in data:
         text = item["target_text"]
@@ -169,6 +169,23 @@ def get_tts_score(request: str) -> dict:
             # Append the weighted score to the scores list.
             scores.append(weighted_score)
 
+                # --- Prepare DataFrame and append to CSV ---
+            df = pd.DataFrame([{
+                "Expected_Emotion": expected_emotion,
+                "Detected_Emotion_Score": detected_emotion_score,
+                "WER_Score": wer_score,
+                "Weighted_Score": weighted_score
+            }])
+
+            # Append row to CSV, write header if file doesn't exist
+            df.to_csv(
+                "scores.csv", 
+                mode='a', 
+                header=not pd.io.common.file_exists("final.csv"), 
+                index=False,
+                float_format='%.17g'  # Optional: format to preserve precision similar to your example
+            )
+
         # Catch any exceptions that occur during score calculation.
         except Exception as e:
             # Log the error and update the result dictionary with the error message.
@@ -180,6 +197,9 @@ def get_tts_score(request: str) -> dict:
         clipped_scores = np.clip(scores, 0, 1)
         mean_value = float(np.mean(clipped_scores))
         result["final_score"] = mean_value
+
+        df = pd.DataFrame([{"final_score": mean_value}])
+        df.to_csv("final.csv", mode='a', header=not pd.io.common.file_exists("final.csv"), index=False)
 
     # Return the final result dictionary containing the score and any errors.
     return result
