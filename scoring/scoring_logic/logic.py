@@ -3,6 +3,7 @@ import os
 import tempfile
 import uuid
 import httpx
+import torchaudio
 
 import gc
 import torch
@@ -21,6 +22,7 @@ from modelscope.pipelines import pipeline
 from modelscope.utils.constant import Tasks
 from parler_tts import ParlerTTSForConditionalGeneration
 from transformers import AutoTokenizer, WhisperForConditionalGeneration, WhisperProcessor
+from parler_tts import ParlerTTSConfig, ParlerTTSForConditionalGeneration, build_delay_pattern_mask
 from huggingface_hub import login
 
 logger = logging.getLogger(__name__)
@@ -364,8 +366,97 @@ def transcribe_audio(audio_path, transcription_url=TRANSCRIPTION_URL):
         raise RuntimeError(error_message)
 
 
+def process_audio(audio_path, feature_extractor, audio_encoder, num_codebooks, bos_token_id, eos_token_id, device):
+    audio, sr = torchaudio.load(audio_path)
 
-def scoring_workflow(repo_namespace, repo_name, text, voice_description, device, model, tokenizer, emotion_inference_pipeline):
+    if sr != feature_extractor.sampling_rate:
+        audio = torchaudio.functional.resample(audio, sr, feature_extractor.sampling_rate)
+    if audio.shape[0] > 1:
+        audio = audio.mean(dim=0, keepdim=True)
+
+    inputs = feature_extractor(
+        audio.squeeze().numpy(),
+        sampling_rate=feature_extractor.sampling_rate,
+        return_tensors="pt"
+    ).to(device)
+
+    with torch.no_grad():
+        tokens = audio_encoder.encode(**inputs)["audio_codes"]
+    
+    # Debug information
+    logger.info(f"Tokens shape: {tokens.shape}")
+    
+    # Handle different dimensions
+    if tokens.dim() == 4:  # If tokens has 4 dimensions
+        tokens = tokens.squeeze(0)  # Remove the first dimension
+    
+    bos_labels = torch.full((1, num_codebooks, 1), bos_token_id, device=device, dtype=torch.long)
+    logger.info(f"BOS labels shape: {bos_labels.shape}")
+    
+    # Now both should be 3-dimensional
+    tokens = torch.cat([bos_labels, tokens], dim=-1)
+    logger.info(f"Combined tokens shape: {tokens.shape}")
+
+    max_length = tokens.shape[-1] + num_codebooks
+    input_ids, pattern_mask = build_delay_pattern_mask(
+        input_ids=tokens,
+        bos_token_id=bos_token_id,
+        pad_token_id=eos_token_id,
+        max_length=max_length,
+        num_codebooks=num_codebooks
+    )
+
+    pattern_mask = torch.where(pattern_mask == -1, eos_token_id, pattern_mask)
+
+    return pattern_mask
+
+def cross_entropy(model, config, tokenizer, prompt_text, description_text, device, feature_extractor):
+
+    num_codebooks = model.decoder.config.num_codebooks
+    bos_token_id = model.generation_config.decoder_start_token_id
+    eos_token_id = config.decoder.eos_token_id
+
+
+    # Tokenize prompt and description
+    encoded_prompt = tokenizer(prompt_text, return_tensors="pt", padding=True).to(device)
+    encoded_description = tokenizer(description_text, return_tensors="pt", padding=True).to(device)
+
+    # Prepare ground truth tokens
+    ground_truth_tokens = process_audio(
+        args.groundTruth,
+        feature_extractor,
+        model.audio_encoder,
+        num_codebooks,
+        bos_token_id,
+        eos_token_id,
+        device
+    )
+    ground_truth_tokens = ground_truth_tokens.unsqueeze(0).permute(0, 2, 1)  # (1, seq_len, codebooks)
+    ground_truth_mask = (ground_truth_tokens != eos_token_id).all(dim=-1).long()
+
+    # === Model Evaluation ===
+    with torch.no_grad():
+        outputs = model(
+            input_ids=encoded_description['input_ids'],
+            attention_mask=encoded_description['attention_mask'],
+            prompt_input_ids=encoded_prompt['input_ids'],
+            prompt_attention_mask=encoded_prompt['attention_mask'],
+            labels=ground_truth_tokens,
+            decoder_attention_mask=ground_truth_mask,
+            return_dict=True,
+            loss_reduction="sum"
+        )
+
+
+    # Normalize loss
+    total_valid_tokens = ground_truth_mask.sum().float()
+    normalized_loss = (outputs.loss / total_valid_tokens).item()
+    
+    logger.info(f"Normalized loss: {normalized_loss}")
+    return normalized_loss
+
+
+def scoring_workflow(repo_namespace, repo_name, text, voice_description, device, model, tokenizer, config, feature_extractor):
     DISCRIMINATOR_FILE_NAME = "discriminator_v1.0.pth"
     MODEL_PCA_FILE_NAME = "discriminator_pca_v1.0.pkl"
 
@@ -412,7 +503,8 @@ def scoring_workflow(repo_namespace, repo_name, text, voice_description, device,
 
 
         # Process emotion
-        audio_emo_vector = process_emotion(audio_path, emotion_inference_pipeline)
+        # audio_emo_vector = process_emotion(audio_path, emotion_inference_pipeline)
+        cross_entropy(model, config, tokenizer, text, voice_description, device, feature_extractor)
 
 
         # Transcribe audio

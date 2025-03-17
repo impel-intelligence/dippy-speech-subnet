@@ -15,7 +15,8 @@ from parler_tts import ParlerTTSForConditionalGeneration
 from modelscope.pipelines import pipeline
 from modelscope.utils.constant import Tasks
 from transformers import AutoTokenizer, WhisperForConditionalGeneration, WhisperProcessor
-
+from parler_tts import ParlerTTSConfig, ParlerTTSForConditionalGeneration, build_delay_pattern_mask
+from transformers import AutoFeatureExtractor, AutoTokenizer
 
 logger = logging.getLogger(__name__)  # Create a logger for this module
 
@@ -143,7 +144,11 @@ def get_tts_score(request: str) -> dict:
 
     model, tokenizer = load_parler_model(request.repo_namespace, request.repo_name, device)
 
-    emotion_inference_pipeline = load_emotion()
+    # emotion_inference_pipeline = load_emotion()
+    config = ParlerTTSConfig.from_pretrained(f"{request.repo_namespace}/{request.repo_name}")
+    model = ParlerTTSForConditionalGeneration.from_pretrained(f"{request.repo_namespace}/{request.repo_name}", config=config).to(device).eval()
+    feature_extractor = AutoFeatureExtractor.from_pretrained(f"{request.repo_namespace}/{request.repo_name}")
+    tokenizer = AutoTokenizer.from_pretrained(f"{request.repo_namespace}/{request.repo_name}")
 
     # Iterate over the data, which contains tuples of text, last user message, and voice description.
     for text, last_user_message, voice_description in data:
