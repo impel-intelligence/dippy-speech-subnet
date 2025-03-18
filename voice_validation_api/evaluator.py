@@ -98,6 +98,8 @@ class Evaluator:
             "VASPI_PASSWORD": os.environ.get("VASPI_PASSWORD"),
             "HUGGINGFACE_TOKEN_PRIME": os.environ.get("HUGGINGFACE_TOKEN_PRIME"),
             "WHISPER_ENDPOINT": os.environ.get("WHISPER_ENDPOINT"),
+            "GROUND_TRUTH_API_URL": os.environ.get("GROUND_TRUTH_API_URL"),
+            "GROUND_TRUTH_API_KEY": os.environ.get("GROUND_TRUTH_API_KEY"),
         }
         self.trace = trace
 
