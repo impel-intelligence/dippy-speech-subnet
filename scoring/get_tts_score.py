@@ -80,7 +80,7 @@ def load_dataset():
 
 
 
-def apply_weights(cross_entropy_loss: float, wer: float, k: float = 2.0) -> float:
+def apply_weights(cross_entropy_loss: float, wer: float, k: float = 1.0) -> float:
     """
     Compute a weighted score by normalizing the cross-entropy loss and Word Error Rate (WER),
     ensuring both are mapped to a 0-1 range where higher is better.
@@ -112,7 +112,7 @@ def apply_weights(cross_entropy_loss: float, wer: float, k: float = 2.0) -> floa
     wer_weighted_score = 1.0 - wer  
 
     # Combine both scores with equal weights
-    weighted_score = 0.6 * cross_entropy_loss_normalized + 0.4 * wer_weighted_score
+    weighted_score = 0.5 * cross_entropy_loss_normalized + 0.5 * wer_weighted_score
 
     return weighted_score
 
