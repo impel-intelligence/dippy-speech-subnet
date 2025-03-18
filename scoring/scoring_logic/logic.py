@@ -4,6 +4,7 @@ import tempfile
 import uuid
 import httpx
 import torchaudio
+import re
 
 import gc
 import torch
@@ -221,30 +222,6 @@ def calculate_wer(reference: str, hypothesis: str, apply_preprocessing: bool = T
     return error_rate
 
 
-# def load_whisper_model(device):
-#     try:
-#         whisper_model_name = "openai/whisper-tiny"
-#         processor = WhisperProcessor.from_pretrained(whisper_model_name)
-#         whisper_model = WhisperForConditionalGeneration.from_pretrained(whisper_model_name).to(device)
-#         logger.info("Whisper Tiny model loaded successfully.")
-#         return processor, whisper_model
-#     except Exception as e:
-#         logger.error(f"Failed to load Whisper Tiny model: {e}", exc_info=True)
-#         raise RuntimeError("Whisper model loading failed.")
-
-
-# def load_parler_model(repo_namespace, repo_name, device):
-#     model_name = f"{repo_namespace}/{repo_name}"
-#     try:
-#         model = ParlerTTSForConditionalGeneration.from_pretrained(model_name).to(device)
-#         tokenizer = AutoTokenizer.from_pretrained(model_name)
-#         logger.info(f"Parler TTS model '{model_name}' and tokenizer loaded successfully.")
-#         return model, tokenizer
-#     except Exception as e:
-#         logger.error(f"Failed to load Parler TTS model or tokenizer: {e}", exc_info=True)
-#         raise RuntimeError(f"Parler TTS model or tokenizer loading failed : {e}")
-
-
 def generate_audio(speaker, prompt_text, sample_number, model, tokenizer, device, tempdir):
     try:
         description = speaker["description"]
@@ -294,30 +271,6 @@ def process_emotion(audio_path, emotion_inference_pipeline):
     except Exception as e:
         logger.error(f"Failed to process audio for Emotion2Vector: {e}", exc_info=True)
         raise RuntimeError("Emotion2Vector processing failed.")
-
-
-# def transcribe_audio(audio_path, processor, whisper_model, device):
-#     try:
-#         audio, sample_rate = sf.read(audio_path)
-
-#         # Resample the audio to 16,000 Hz if necessary
-#         if sample_rate != 16000:
-#             audio = librosa.resample(audio, orig_sr=sample_rate, target_sr=16000)
-#             sample_rate = 16000
-
-#         # Clamp audio to avoid clipping issues
-#         audio = np.clip(audio, -1.0, 1.0)
-
-#         inputs = processor(audio, sampling_rate=sample_rate, return_tensors="pt").to(device)
-
-#         with torch.no_grad():
-#             predicted_ids = whisper_model.generate(inputs.input_features)
-#         transcription = processor.batch_decode(predicted_ids, skip_special_tokens=True)[0]
-#         logger.info(f"Transcription: {transcription}")
-#         return transcription
-#     except Exception as e:
-#         logger.error(f"Error during transcription with Whisper Tiny: {e}", exc_info=True)
-#         raise RuntimeError(f"Audio transcription failed: {e}")
 
 
 def transcribe_audio(audio_path, transcription_url=TRANSCRIPTION_URL):
@@ -525,6 +478,10 @@ def generate_ground_truth(text, output_path="ground_truth.wav", tmpdirname=None)
         raise RuntimeError(error_message)
 
 
+def clean_text(text: str) -> str:
+    """Removes special characters from a string except letters, numbers, and spaces."""
+    return re.sub(r'[^a-zA-Z0-9\s]', '', text)
+
 def scoring_workflow(repo_namespace, repo_name, text, voice_description, device, model, tokenizer, config, feature_extractor):
     DISCRIMINATOR_FILE_NAME = "discriminator_v1.0.pth"
     MODEL_PCA_FILE_NAME = "discriminator_pca_v1.0.pkl"
@@ -571,6 +528,8 @@ def scoring_workflow(repo_namespace, repo_name, text, voice_description, device,
             truncated_text = tokenizer.decode(truncated_tokens, skip_special_tokens=True)
         else:
             truncated_text = text
+
+        truncated_text = clean_text(truncated_text)
             
         # Generate audio with potentially truncated text
         audio_path = generate_audio(speaker, truncated_text, sample_number, model, tokenizer, device, tmpdirname)
@@ -582,19 +541,12 @@ def scoring_workflow(repo_namespace, repo_name, text, voice_description, device,
         # Process emotion
         # audio_emo_vector = process_emotion(audio_path, emotion_inference_pipeline)
         loss = cross_entropy(model, config, tokenizer, text, voice_description, device, feature_extractor, ground_truth_path)
-
+        logger.info(f"Cross Entropy Loss: {loss}")
 
         # Transcribe audio
         transcription = transcribe_audio(audio_path)
 
 
-    # # Validate results
-    # if audio_emo_vector is None or audio_emo_vector.size == 0:
-    #     raise RuntimeError("Emotion vector is missing or empty.")
-    # if not transcription.strip():
-    #     raise RuntimeError("Transcription is missing or empty.")
-
-    # Calculate WER
     try:
         wer_score = calculate_wer(text, transcription)
         logger.info(f"Word Error Rate (WER) calculated: {wer_score}")
@@ -602,14 +554,7 @@ def scoring_workflow(repo_namespace, repo_name, text, voice_description, device,
         logger.error(f"Failed to calculate Word Error Rate (WER): {e}", exc_info=True)
         raise RuntimeError(f"WER calculation failed: {e}")
 
-    # # Calculate similarity score
-    # try:
-    #     score = calculate_human_similarity_score(audio_emo_vector, DISCRIMINATOR_FILE_NAME, MODEL_PCA_FILE_NAME)
-    #     logger.info(f"Human similarity score calculated: {score}")
-    # except Exception as e:
-    #     logger.error(f"Failed to calculate human similarity score: {e}", exc_info=True)
-    #     raise RuntimeError(f"Human similarity score calculation failed.{e}")
-    
+
     try:
         del model
     except NameError:
