@@ -88,7 +88,8 @@ INVALID_BLOCK_START = 4200000
 INVALID_BLOCK_END = 4200000
 NEW_EPOCH_BLOCK = 4952280 # Models submitted before this block will get a score of 0
 
-
+SUBNET_REGISTERED_UID = 155
+SUBNET_EMISSION_BURN_RATE = 0.75
 def compute_wins(
     miner_registry: Dict[int, MinerEntry],
 ) -> Tuple[Dict[int, int], Dict[int, float]]:
@@ -900,9 +901,29 @@ class Validator:
         # Compute softmaxed weights based on win rate.
         model_weights = torch.tensor([win_rate[uid] for uid in sorted_uids], dtype=torch.float32)
 
-        temperature = constants.temperature
 
-        step_weights = torch.softmax(model_weights / temperature, dim=0)
+        target_uid = SUBNET_REGISTERED_UID
+        target_weight_ratio = SUBNET_EMISSION_BURN_RATE
+        
+        try:
+            target_idx = sorted_uids.index(target_uid)
+            temperature = constants.temperature
+            
+            initial_weights = torch.softmax(model_weights / temperature, dim=0)
+            
+            # Scale down non-target weights to make room for target weight
+            initial_weights = initial_weights * (1 - target_weight_ratio)
+            
+            initial_weights[target_idx] = target_weight_ratio
+            
+            step_weights = initial_weights
+            
+        except ValueError:
+            # Leave original method in case of rollback
+            temperature = constants.temperature
+            step_weights = torch.softmax(model_weights / temperature, dim=0)
+
+        step_weights = step_weights / step_weights.sum()
 
         # Update weights based on moving average.
         torch_metagraph = torch.from_numpy(self.metagraph.S)
