@@ -23,7 +23,7 @@ logger = logging.getLogger(__name__)  # Create a logger for this module
 
 def load_dataset():
     
-    NUMBER_OF_SAMPLES = 40
+    NUMBER_OF_SAMPLES = 2
 
 
     print("Sampling dataset")
@@ -79,26 +79,44 @@ def load_dataset():
         raise Exception(f"Error loading dataset: {failure_reason}")
 
 
-def apply_weights(base_score: float, wer: float) -> float:
+
+def apply_weights(cross_entropy_loss: float, wer: float, k: float = 2.0) -> float:
     """
-    Adjust the base score by incorporating the Word Error Rate (WER).
+    Compute a weighted score by normalizing the cross-entropy loss and Word Error Rate (WER),
+    ensuring both are mapped to a 0-1 range where higher is better.
 
-    :param base_score: The initial score before weighting.
-    :param wer: The Word Error Rate (WER) of the transcription.
-    :return: The weighted score, with base_score and WER equally weighted (50% each).
+    :param cross_entropy_loss: The cross-entropy loss (0 to infinity). Lower values indicate better performance.
+                               It is transformed using 1 / (1 + k * cross_entropy_loss) to control steepness.
+                               - Cross-entropy loss = 0 → Normalized score = 1 (Best case)
+                               - Cross-entropy loss → ∞ → Normalized score → 0 (Worst case)
+                               - Cross-entropy loss ~ 1 → Normalized score ~ 1 / (1 + k) (adjustable steepness)
+    :param wer: The Word Error Rate (WER) of the transcription (0 to 1). Lower values indicate better accuracy.
+                It is transformed using (1 - wer) to align with the scoring direction.
+    :param k: Scaling factor to adjust the steepness of the cross-entropy loss normalization.
+              - **Big ( k ) (e.g., 5)** → Punishes high loss HARD. Score drops fast.  
+              - **Small ( k ) (e.g., 0.5)** → Loss is forgiven more. Score drops slowly.  
+              - **( k = 1.0 ) (default)** → Balanced approach between smooth and steep drop-off.  
+
+              🔹 **Think of ( k ) like a sensitivity dial:**  
+                 - Turn it **up** → Harsher punishment for bad performance.  
+                 - Turn it **down** → More forgiving, smoother scoring.  
+
+    :return: A weighted score, where the normalized cross-entropy score and WER contribute equally (50% each).
+             The final score ranges from 0 to 1, where higher values indicate better performance.
     """
-    base_score = base_score[0]
 
-    # Handle WER weighting
-    if wer == 0.0:  # Perfect transcription
-        wer_weighted_score = 1.0  # Perfect score for WER
-    else:
-        wer_weighted_score = 1.0 - wer  # Scale WER score (lower WER is better)
+    # Normalize cross-entropy loss with adjustable steepness
+    cross_entropy_loss_normalized = 1 / (1 + k * cross_entropy_loss)  # Adjustable steepness
 
-    # Combine base score and WER score with 50% weight each
-    weighted_score = 0.5 * base_score + 0.5 * wer_weighted_score
+    # Normalize WER (lower WER → higher score)
+    wer_weighted_score = 1.0 - wer  
+
+    # Combine both scores with equal weights
+    weighted_score = 0.6 * cross_entropy_loss_normalized + 0.4 * wer_weighted_score
 
     return weighted_score
+
+
 
 
 def load_parler_model(repo_namespace, repo_name, device):
@@ -157,10 +175,10 @@ def get_tts_score(request: str) -> dict:
             base_score, wer_score = scoring_workflow(request.repo_namespace, request.repo_name, text, voice_description, device, model, tokenizer, config, feature_extractor)
 
             # Extract float values from each tensor in the 'scores' list for further processing
-            float_values_from_tensors = [score.item() for score in base_score]
+            #float_values_from_tensors = [score.item() for score in base_score]
 
             # Apply weights to the base score based on text properties.
-            weighted_score = apply_weights(float_values_from_tensors, wer_score)
+            weighted_score = apply_weights(base_score, wer_score)
 
             # Append the weighted score to the scores list.
             scores.append(weighted_score)

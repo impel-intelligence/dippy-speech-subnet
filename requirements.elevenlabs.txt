@@ -1,0 +1,19 @@
+# Core dependencies
+pytest
+numpy
+torch
+torchaudio
+transformers
+elevenlabs
+pydub
+scipy
+librosa
+python-dotenv
+
+# Audio processing
+whisper
+modelscope
+parler_tts
+
+# Project-specific dependencies
+bittensor

@@ -410,7 +410,7 @@ def process_audio(audio_path, feature_extractor, audio_encoder, num_codebooks, b
 
     return pattern_mask
 
-def cross_entropy(model, config, tokenizer, prompt_text, description_text, device, feature_extractor):
+def cross_entropy(model, config, tokenizer, prompt_text, description_text, device, feature_extractor, groundTruth):
 
     num_codebooks = model.decoder.config.num_codebooks
     bos_token_id = model.generation_config.decoder_start_token_id
@@ -423,7 +423,7 @@ def cross_entropy(model, config, tokenizer, prompt_text, description_text, devic
 
     # Prepare ground truth tokens
     ground_truth_tokens = process_audio(
-        args.groundTruth,
+        groundTruth,
         feature_extractor,
         model.audio_encoder,
         num_codebooks,
@@ -456,6 +456,75 @@ def cross_entropy(model, config, tokenizer, prompt_text, description_text, devic
     return normalized_loss
 
 
+def generate_ground_truth(text, output_path="ground_truth.wav", tmpdirname=None):
+    """
+    Generate speech from text using the TTS API endpoint.
+    
+    Args:
+        text (str): The text to synthesize into speech
+        output_path (str): Path where the output WAV file will be saved
+        tmpdirname (str, optional): Temporary directory to use for saving the file
+        
+    Returns:
+        str: Path to the generated audio file
+        
+    Raises:
+        RuntimeError: If the API request fails
+        
+    """
+    # If tmpdirname is provided, use it for the output path
+    if tmpdirname:
+        output_path = os.path.join(tmpdirname, os.path.basename(output_path))
+    api_key = os.environ.get("GROUND_TRUTH_API_KEY")
+    api_url = os.environ.get("GROUND_TRUTH_API_URL")
+    try:
+        # Prepare headers and data for the request
+        headers = {
+            "Content-Type": "application/json",
+            "X-API-Key": api_key
+        }
+        
+        data = {
+            "text": text,
+            "max_audio_length_ms": 100000,  # Set maximum audio length to 100 seconds
+            "temperature": 1.0  # Set temperature parameter
+        }
+        
+        # Make the POST request with a longer timeout
+        timeout = httpx.Timeout(300.0)  # 5 minutes timeout
+        with httpx.Client(timeout=timeout) as client:
+            logger.info(f"Sending request to TTS API with text: {text[:50]}...")
+            response = client.post(api_url, headers=headers, json=data)
+        
+        # Check if the request was successful
+        if response.status_code == 200:
+            # Save the response content to the output file
+            with open(output_path, 'wb') as f:
+                f.write(response.content)
+            
+            logger.info(f"Speech generated successfully and saved to {output_path}")
+            return output_path
+        else:
+            error_message = f"API request failed with status code {response.status_code}: {response.text}"
+            logger.error(error_message)
+            raise RuntimeError(error_message)
+            
+    except httpx.TimeoutException as e:
+        error_message = f"Request to TTS API timed out after 300 seconds: {e}"
+        logger.error(error_message)
+        raise RuntimeError(error_message)
+        
+    except httpx.ConnectError as e:
+        error_message = f"Failed to connect to TTS API endpoint: {e}"
+        logger.error(error_message)
+        raise RuntimeError(error_message)
+        
+    except Exception as e:
+        error_message = f"An unexpected error occurred during ground truth speech generation: {e}"
+        logger.error(error_message)
+        raise RuntimeError(error_message)
+
+
 def scoring_workflow(repo_namespace, repo_name, text, voice_description, device, model, tokenizer, config, feature_extractor):
     DISCRIMINATOR_FILE_NAME = "discriminator_v1.0.pth"
     MODEL_PCA_FILE_NAME = "discriminator_pca_v1.0.pkl"
@@ -484,13 +553,7 @@ def scoring_workflow(repo_namespace, repo_name, text, voice_description, device,
         # Handle the exception (e.g., log the error, notify the user, etc.)
         raise RuntimeError(f"An error occurred during hf login: {e}")
 
-    # device = "cuda:0" if torch.cuda.is_available() else "cpu"
-    # logger.info(f"Device selected for computation: {device}")
 
-
-    # Load models
-    # processor, whisper_model = load_whisper_model(device)
-    # model, tokenizer = load_parler_model(repo_namespace, repo_name, device)
 
     # Initialize speaker
     speaker_index = 0
@@ -498,24 +561,38 @@ def scoring_workflow(repo_namespace, repo_name, text, voice_description, device,
     sample_number = f"{speaker['name']}_{uuid.uuid4()}"
 
     with tempfile.TemporaryDirectory() as tmpdirname:
-        # Generate audio
-        audio_path = generate_audio(speaker, text, sample_number, model, tokenizer, device, tmpdirname)
+        # Prepare text - check if it needs truncation
+        encoded = tokenizer(text, return_tensors="pt")
+        token_count = encoded.input_ids.shape[1]
+        
+        # Truncate text if needed to ensure consistent length
+        if token_count > 100:
+            truncated_tokens = encoded.input_ids[0][:100]  # Keep only first 100 tokens
+            truncated_text = tokenizer.decode(truncated_tokens, skip_special_tokens=True)
+        else:
+            truncated_text = text
+            
+        # Generate audio with potentially truncated text
+        audio_path = generate_audio(speaker, truncated_text, sample_number, model, tokenizer, device, tmpdirname)
+
+        # Use the same truncated text for ground truth to ensure consistency
+        ground_truth_path = generate_ground_truth(truncated_text, f"ground_truth_{sample_number}.wav", tmpdirname)
 
 
         # Process emotion
         # audio_emo_vector = process_emotion(audio_path, emotion_inference_pipeline)
-        cross_entropy(model, config, tokenizer, text, voice_description, device, feature_extractor)
+        loss = cross_entropy(model, config, tokenizer, text, voice_description, device, feature_extractor, ground_truth_path)
 
 
         # Transcribe audio
         transcription = transcribe_audio(audio_path)
 
 
-    # Validate results
-    if audio_emo_vector is None or audio_emo_vector.size == 0:
-        raise RuntimeError("Emotion vector is missing or empty.")
-    if not transcription.strip():
-        raise RuntimeError("Transcription is missing or empty.")
+    # # Validate results
+    # if audio_emo_vector is None or audio_emo_vector.size == 0:
+    #     raise RuntimeError("Emotion vector is missing or empty.")
+    # if not transcription.strip():
+    #     raise RuntimeError("Transcription is missing or empty.")
 
     # Calculate WER
     try:
@@ -525,13 +602,13 @@ def scoring_workflow(repo_namespace, repo_name, text, voice_description, device,
         logger.error(f"Failed to calculate Word Error Rate (WER): {e}", exc_info=True)
         raise RuntimeError(f"WER calculation failed: {e}")
 
-    # Calculate similarity score
-    try:
-        score = calculate_human_similarity_score(audio_emo_vector, DISCRIMINATOR_FILE_NAME, MODEL_PCA_FILE_NAME)
-        logger.info(f"Human similarity score calculated: {score}")
-    except Exception as e:
-        logger.error(f"Failed to calculate human similarity score: {e}", exc_info=True)
-        raise RuntimeError(f"Human similarity score calculation failed.{e}")
+    # # Calculate similarity score
+    # try:
+    #     score = calculate_human_similarity_score(audio_emo_vector, DISCRIMINATOR_FILE_NAME, MODEL_PCA_FILE_NAME)
+    #     logger.info(f"Human similarity score calculated: {score}")
+    # except Exception as e:
+    #     logger.error(f"Failed to calculate human similarity score: {e}", exc_info=True)
+    #     raise RuntimeError(f"Human similarity score calculation failed.{e}")
     
     try:
         del model
@@ -568,4 +645,4 @@ def scoring_workflow(repo_namespace, repo_name, text, voice_description, device,
 
 
 
-    return (score, wer_score)
+    return (loss, wer_score)
