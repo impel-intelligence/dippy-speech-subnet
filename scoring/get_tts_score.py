@@ -114,6 +114,8 @@ def apply_weights(cross_entropy_loss: float, wer: float, k: float = 1.0) -> floa
     # Combine both scores with equal weights
     weighted_score = 0.5 * cross_entropy_loss_normalized + 0.5 * wer_weighted_score
 
+    logger.debug(f"Cross-Entropy Loss: {cross_entropy_loss}, WER: {wer}, Weighted Score: {weighted_score}")
+
     return weighted_score
 
 
