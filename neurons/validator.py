@@ -675,7 +675,7 @@ class Validator:
             return success
 
         try:
-            bt.logging.warning(f"Running Validator Version - DTAO - V0.0.2")
+            bt.logging.warning(f"Running Validator Version - DTAO - FLAME - V0.0.3")
             bt.logging.warning(f"Running step with ttl {ttl}")
             step_success = await asyncio.wait_for(_try_run_step(), ttl)
             bt.logging.warning("Finished running step.")
