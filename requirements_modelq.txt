@@ -1,6 +1,6 @@
 wheel
 setuptools
-bittensor==9.0.0
+bittensor==9.1.0
 python-dotenv
 
 loguru
