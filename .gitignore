@@ -1,5 +1,6 @@
-# Memory Bank
+# Memory Bank and Project Rules
 memory-bank/
+.clinerules
 
 */bittensor_models
 */logs

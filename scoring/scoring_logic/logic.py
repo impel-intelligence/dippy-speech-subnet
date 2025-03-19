@@ -3,6 +3,8 @@ import os
 import tempfile
 import uuid
 import httpx
+import torchaudio
+import re
 
 import gc
 import torch
@@ -21,6 +23,7 @@ from modelscope.pipelines import pipeline
 from modelscope.utils.constant import Tasks
 from parler_tts import ParlerTTSForConditionalGeneration
 from transformers import AutoTokenizer, WhisperForConditionalGeneration, WhisperProcessor
+from parler_tts import ParlerTTSConfig, ParlerTTSForConditionalGeneration, build_delay_pattern_mask
 from huggingface_hub import login
 
 logger = logging.getLogger(__name__)
@@ -219,30 +222,6 @@ def calculate_wer(reference: str, hypothesis: str, apply_preprocessing: bool = T
     return error_rate
 
 
-# def load_whisper_model(device):
-#     try:
-#         whisper_model_name = "openai/whisper-tiny"
-#         processor = WhisperProcessor.from_pretrained(whisper_model_name)
-#         whisper_model = WhisperForConditionalGeneration.from_pretrained(whisper_model_name).to(device)
-#         logger.info("Whisper Tiny model loaded successfully.")
-#         return processor, whisper_model
-#     except Exception as e:
-#         logger.error(f"Failed to load Whisper Tiny model: {e}", exc_info=True)
-#         raise RuntimeError("Whisper model loading failed.")
-
-
-# def load_parler_model(repo_namespace, repo_name, device):
-#     model_name = f"{repo_namespace}/{repo_name}"
-#     try:
-#         model = ParlerTTSForConditionalGeneration.from_pretrained(model_name).to(device)
-#         tokenizer = AutoTokenizer.from_pretrained(model_name)
-#         logger.info(f"Parler TTS model '{model_name}' and tokenizer loaded successfully.")
-#         return model, tokenizer
-#     except Exception as e:
-#         logger.error(f"Failed to load Parler TTS model or tokenizer: {e}", exc_info=True)
-#         raise RuntimeError(f"Parler TTS model or tokenizer loading failed : {e}")
-
-
 def generate_audio(speaker, prompt_text, sample_number, model, tokenizer, device, tempdir):
     try:
         description = speaker["description"]
@@ -294,30 +273,6 @@ def process_emotion(audio_path, emotion_inference_pipeline):
         raise RuntimeError("Emotion2Vector processing failed.")
 
 
-# def transcribe_audio(audio_path, processor, whisper_model, device):
-#     try:
-#         audio, sample_rate = sf.read(audio_path)
-
-#         # Resample the audio to 16,000 Hz if necessary
-#         if sample_rate != 16000:
-#             audio = librosa.resample(audio, orig_sr=sample_rate, target_sr=16000)
-#             sample_rate = 16000
-
-#         # Clamp audio to avoid clipping issues
-#         audio = np.clip(audio, -1.0, 1.0)
-
-#         inputs = processor(audio, sampling_rate=sample_rate, return_tensors="pt").to(device)
-
-#         with torch.no_grad():
-#             predicted_ids = whisper_model.generate(inputs.input_features)
-#         transcription = processor.batch_decode(predicted_ids, skip_special_tokens=True)[0]
-#         logger.info(f"Transcription: {transcription}")
-#         return transcription
-#     except Exception as e:
-#         logger.error(f"Error during transcription with Whisper Tiny: {e}", exc_info=True)
-#         raise RuntimeError(f"Audio transcription failed: {e}")
-
-
 def transcribe_audio(audio_path, transcription_url=TRANSCRIPTION_URL):
     """
     Transcribes an audio file by sending it to a remote transcription service via an HTTP POST request.
@@ -364,8 +319,170 @@ def transcribe_audio(audio_path, transcription_url=TRANSCRIPTION_URL):
         raise RuntimeError(error_message)
 
 
+def process_audio(audio_path, feature_extractor, audio_encoder, num_codebooks, bos_token_id, eos_token_id, device):
+    audio, sr = torchaudio.load(audio_path)
 
-def scoring_workflow(repo_namespace, repo_name, text, voice_description, device, model, tokenizer, emotion_inference_pipeline):
+    if sr != feature_extractor.sampling_rate:
+        audio = torchaudio.functional.resample(audio, sr, feature_extractor.sampling_rate)
+    if audio.shape[0] > 1:
+        audio = audio.mean(dim=0, keepdim=True)
+
+    inputs = feature_extractor(
+        audio.squeeze().numpy(),
+        sampling_rate=feature_extractor.sampling_rate,
+        return_tensors="pt"
+    ).to(device)
+
+    with torch.no_grad():
+        tokens = audio_encoder.encode(**inputs)["audio_codes"]
+    
+    # Debug information
+    logger.info(f"Tokens shape: {tokens.shape}")
+    
+    # Handle different dimensions
+    if tokens.dim() == 4:  # If tokens has 4 dimensions
+        tokens = tokens.squeeze(0)  # Remove the first dimension
+    
+    bos_labels = torch.full((1, num_codebooks, 1), bos_token_id, device=device, dtype=torch.long)
+    logger.info(f"BOS labels shape: {bos_labels.shape}")
+    
+    # Now both should be 3-dimensional
+    tokens = torch.cat([bos_labels, tokens], dim=-1)
+    logger.info(f"Combined tokens shape: {tokens.shape}")
+
+    max_length = tokens.shape[-1] + num_codebooks
+    input_ids, pattern_mask = build_delay_pattern_mask(
+        input_ids=tokens,
+        bos_token_id=bos_token_id,
+        pad_token_id=eos_token_id,
+        max_length=max_length,
+        num_codebooks=num_codebooks
+    )
+
+    pattern_mask = torch.where(pattern_mask == -1, eos_token_id, pattern_mask)
+
+    return pattern_mask
+
+def cross_entropy(model, config, tokenizer, prompt_text, description_text, device, feature_extractor, groundTruth):
+
+    num_codebooks = model.decoder.config.num_codebooks
+    bos_token_id = model.generation_config.decoder_start_token_id
+    eos_token_id = config.decoder.eos_token_id
+
+
+    # Tokenize prompt and description
+    encoded_prompt = tokenizer(prompt_text, return_tensors="pt", padding=True).to(device)
+    encoded_description = tokenizer(description_text, return_tensors="pt", padding=True).to(device)
+
+    # Prepare ground truth tokens
+    ground_truth_tokens = process_audio(
+        groundTruth,
+        feature_extractor,
+        model.audio_encoder,
+        num_codebooks,
+        bos_token_id,
+        eos_token_id,
+        device
+    )
+    ground_truth_tokens = ground_truth_tokens.unsqueeze(0).permute(0, 2, 1)  # (1, seq_len, codebooks)
+    ground_truth_mask = (ground_truth_tokens != eos_token_id).all(dim=-1).long()
+
+    # === Model Evaluation ===
+    with torch.no_grad():
+        outputs = model(
+            input_ids=encoded_description['input_ids'],
+            attention_mask=encoded_description['attention_mask'],
+            prompt_input_ids=encoded_prompt['input_ids'],
+            prompt_attention_mask=encoded_prompt['attention_mask'],
+            labels=ground_truth_tokens,
+            decoder_attention_mask=ground_truth_mask,
+            return_dict=True,
+            loss_reduction="sum"
+        )
+
+
+    # Normalize loss
+    total_valid_tokens = ground_truth_mask.sum().float()
+    normalized_loss = (outputs.loss / total_valid_tokens).item()
+    
+    logger.info(f"Normalized loss: {normalized_loss}")
+    return normalized_loss
+
+
+def generate_ground_truth(text, output_path="ground_truth.wav", tmpdirname=None):
+    """
+    Generate speech from text using the TTS API endpoint.
+    
+    Args:
+        text (str): The text to synthesize into speech
+        output_path (str): Path where the output WAV file will be saved
+        tmpdirname (str, optional): Temporary directory to use for saving the file
+        
+    Returns:
+        str: Path to the generated audio file
+        
+    Raises:
+        RuntimeError: If the API request fails
+        
+    """
+    # If tmpdirname is provided, use it for the output path
+    if tmpdirname:
+        output_path = os.path.join(tmpdirname, os.path.basename(output_path))
+    api_key = os.environ.get("GROUND_TRUTH_API_KEY")
+    api_url = os.environ.get("GROUND_TRUTH_API_URL")
+    try:
+        # Prepare headers and data for the request
+        headers = {
+            "Content-Type": "application/json",
+            "X-API-Key": api_key
+        }
+        
+        data = {
+            "text": text,
+            "max_audio_length_ms": 100000,  # Set maximum audio length to 100 seconds
+            "temperature": 1.0  # Set temperature parameter
+        }
+        
+        # Make the POST request with a longer timeout
+        timeout = httpx.Timeout(300.0)  # 5 minutes timeout
+        with httpx.Client(timeout=timeout) as client:
+            logger.info(f"Sending request to TTS API with text: {text[:50]}...")
+            response = client.post(api_url, headers=headers, json=data)
+        
+        # Check if the request was successful
+        if response.status_code == 200:
+            # Save the response content to the output file
+            with open(output_path, 'wb') as f:
+                f.write(response.content)
+            
+            logger.info(f"Speech generated successfully and saved to {output_path}")
+            return output_path
+        else:
+            error_message = f"API request failed with status code {response.status_code}: {response.text}"
+            logger.error(error_message)
+            raise RuntimeError(error_message)
+            
+    except httpx.TimeoutException as e:
+        error_message = f"Request to TTS API timed out after 300 seconds: {e}"
+        logger.error(error_message)
+        raise RuntimeError(error_message)
+        
+    except httpx.ConnectError as e:
+        error_message = f"Failed to connect to TTS API endpoint: {e}"
+        logger.error(error_message)
+        raise RuntimeError(error_message)
+        
+    except Exception as e:
+        error_message = f"An unexpected error occurred during ground truth speech generation: {e}"
+        logger.error(error_message)
+        raise RuntimeError(error_message)
+
+
+def clean_text(text: str) -> str:
+    """Removes special characters from a string except letters, numbers, and spaces."""
+    return re.sub(r'[^a-zA-Z0-9\s]', '', text)
+
+def scoring_workflow(repo_namespace, repo_name, text, voice_description, device, model, tokenizer, config, feature_extractor):
     DISCRIMINATOR_FILE_NAME = "discriminator_v1.0.pth"
     MODEL_PCA_FILE_NAME = "discriminator_pca_v1.0.pkl"
 
@@ -393,13 +510,7 @@ def scoring_workflow(repo_namespace, repo_name, text, voice_description, device,
         # Handle the exception (e.g., log the error, notify the user, etc.)
         raise RuntimeError(f"An error occurred during hf login: {e}")
 
-    # device = "cuda:0" if torch.cuda.is_available() else "cpu"
-    # logger.info(f"Device selected for computation: {device}")
 
-
-    # Load models
-    # processor, whisper_model = load_whisper_model(device)
-    # model, tokenizer = load_parler_model(repo_namespace, repo_name, device)
 
     # Initialize speaker
     speaker_index = 0
@@ -407,25 +518,35 @@ def scoring_workflow(repo_namespace, repo_name, text, voice_description, device,
     sample_number = f"{speaker['name']}_{uuid.uuid4()}"
 
     with tempfile.TemporaryDirectory() as tmpdirname:
-        # Generate audio
-        audio_path = generate_audio(speaker, text, sample_number, model, tokenizer, device, tmpdirname)
+        # Prepare text - check if it needs truncation
+        encoded = tokenizer(text, return_tensors="pt")
+        token_count = encoded.input_ids.shape[1]
+        
+        # Truncate text if needed to ensure consistent length
+        if token_count > 100:
+            truncated_tokens = encoded.input_ids[0][:100]  # Keep only first 100 tokens
+            truncated_text = tokenizer.decode(truncated_tokens, skip_special_tokens=True)
+        else:
+            truncated_text = text
+
+        truncated_text = clean_text(truncated_text)
+            
+        # Generate audio with potentially truncated text
+        audio_path = generate_audio(speaker, truncated_text, sample_number, model, tokenizer, device, tmpdirname)
+
+        # Use the same truncated text for ground truth to ensure consistency
+        ground_truth_path = generate_ground_truth(truncated_text, f"ground_truth_{sample_number}.wav", tmpdirname)
 
 
         # Process emotion
-        audio_emo_vector = process_emotion(audio_path, emotion_inference_pipeline)
-
+        # audio_emo_vector = process_emotion(audio_path, emotion_inference_pipeline)
+        loss = cross_entropy(model, config, tokenizer, text, voice_description, device, feature_extractor, ground_truth_path)
+        logger.info(f"Cross Entropy Loss: {loss}")
 
         # Transcribe audio
         transcription = transcribe_audio(audio_path)
 
 
-    # Validate results
-    if audio_emo_vector is None or audio_emo_vector.size == 0:
-        raise RuntimeError("Emotion vector is missing or empty.")
-    if not transcription.strip():
-        raise RuntimeError("Transcription is missing or empty.")
-
-    # Calculate WER
     try:
         wer_score = calculate_wer(text, transcription)
         logger.info(f"Word Error Rate (WER) calculated: {wer_score}")
@@ -433,14 +554,7 @@ def scoring_workflow(repo_namespace, repo_name, text, voice_description, device,
         logger.error(f"Failed to calculate Word Error Rate (WER): {e}", exc_info=True)
         raise RuntimeError(f"WER calculation failed: {e}")
 
-    # Calculate similarity score
-    try:
-        score = calculate_human_similarity_score(audio_emo_vector, DISCRIMINATOR_FILE_NAME, MODEL_PCA_FILE_NAME)
-        logger.info(f"Human similarity score calculated: {score}")
-    except Exception as e:
-        logger.error(f"Failed to calculate human similarity score: {e}", exc_info=True)
-        raise RuntimeError(f"Human similarity score calculation failed.{e}")
-    
+
     try:
         del model
     except NameError:
@@ -476,4 +590,4 @@ def scoring_workflow(repo_namespace, repo_name, text, voice_description, device,
 
 
 
-    return (score, wer_score)
+    return (loss, wer_score)
