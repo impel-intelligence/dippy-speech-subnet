@@ -86,7 +86,7 @@ def extract_raw_data(data):
 os.environ["TOKENIZERS_PARALLELISM"] = "false"
 INVALID_BLOCK_START = 4200000
 INVALID_BLOCK_END = 4200000
-NEW_EPOCH_BLOCK = 5164108 # Models submitted before this block will get weights set to zero after block # 5,170,108
+NEW_EPOCH_BLOCK = 5170100 # Models submitted before this block will get weights set to zero after block # 5,170,108
 
 SUBNET_REGISTERED_UID = 155
 SUBNET_EMISSION_BURN_RATE = 0.75
@@ -675,7 +675,7 @@ class Validator:
             return success
 
         try:
-            bt.logging.warning(f"Running Validator Version - DTAO - FLAME - V0.0.3")
+            bt.logging.warning(f"Running Validator Version - DTAO - FLAME - CROSS - ENTROPY - V0.0.5")
             bt.logging.warning(f"Running step with ttl {ttl}")
             step_success = await asyncio.wait_for(_try_run_step(), ttl)
             bt.logging.warning("Finished running step.")
