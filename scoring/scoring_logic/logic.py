@@ -478,9 +478,19 @@ def generate_ground_truth(text, output_path="ground_truth.wav", tmpdirname=None)
         raise RuntimeError(error_message)
 
 
+# def clean_text(text: str) -> str:
+#     """Removes special characters from a string except letters, numbers, and spaces."""
+#     return re.sub(r'[^a-zA-Z0-9\s]', '', text)
+
+
 def clean_text(text: str) -> str:
-    """Removes special characters from a string except letters, numbers, and spaces."""
-    return re.sub(r'[^a-zA-Z0-9\s]', '', text)
+    """Removes special characters from a string except letters, numbers, spaces, and select punctuation."""
+    # Remove standalone backslashes
+    text = re.sub(r"\\+", '', text)
+    # Remove unwanted special characters while keeping specific ones
+    text = re.sub(r"[^a-zA-Z0-9\s.,!?;:'()\"\[\]-]", '', text)
+    return text
+
 
 def scoring_workflow(repo_namespace, repo_name, text, voice_description, device, model, tokenizer, config, feature_extractor):
     DISCRIMINATOR_FILE_NAME = "discriminator_v1.0.pth"
