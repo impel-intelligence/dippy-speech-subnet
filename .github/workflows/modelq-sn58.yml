@@ -2,7 +2,7 @@ name: ModelQ - SN58
 on:
   workflow_dispatch:  # Allows manual triggering of the workflow
 jobs:
-  push-image:
+  build-n-push-image:
     runs-on: ubuntu-latest
     steps:
       # Checkout the repository (required for building the Docker image)
@@ -12,40 +12,31 @@ jobs:
       # Check authorized user
       - name: Check Triggering User
         run: |
-          AUTHORIZED_USERS=("pravin-X109" "ManavShahWasTaken" "donaldknoller")
+          AUTHORIZED_USERS=("ManavShahWasTaken" "donaldknoller")
           if [[ ! " ${AUTHORIZED_USERS[@]} " =~ " ${{ github.actor }} " ]]; then
             echo "::error::Unauthorized user: ${{ github.actor }}"
             exit 1
           fi
+      # Get the short SHA for tagging
+      - name: Get Git SHA
+        id: git-sha
+        run: echo "sha=$(git rev-parse --short HEAD)" >> $GITHUB_OUTPUT
 
-      # Authenticate with Google Cloud
-      - name: Authenticate with Google Cloud
-        uses: google-github-actions/auth@v2
+      # Login to GitHub Container Registry
+      - name: Login to GitHub Container Registry
+        uses: docker/login-action@v2
         with:
-          credentials_json: ${{ secrets.GCP_SA_KEY }}
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
 
-      # Configure Docker for GCP Artifact Registry
-      - name: Configure Docker for GCP Artifact Registry
-        run: gcloud auth configure-docker us-east1-docker.pkg.dev --quiet
-
-      # Build the custom Python Docker image using vapi.Dockerfile
-      - name: Build Docker Image
-        run: |
-          docker build \
-            --build-arg SUPABASE_KEY=${{ secrets.SUPABASE_KEY }} \
-            --build-arg SUPABASE_URL=${{ secrets.SUPABASE_URL }} \
-            --build-arg ADMIN_KEY=${{ secrets.ADMIN_KEY }} \
-            --build-arg HF_ACCESS_TOKEN=${{ secrets.HF_ACCESS_TOKEN }} \
-            --build-arg HF_USER=${{ secrets.HF_USER }} \
-            --build-arg DIPPY_KEY=${{ secrets.DIPPY_KEY }} \
-            --build-arg OPENAI_API_KEY=${{ secrets.OPENAI_API_KEY }} \
-            --build-arg DATASET_API_KEY=${{ secrets.DATASET_API_KEY }} \
-            --build-arg POSTGRES_URL=${{ secrets.POSTGRES_URL }} \
-            --build-arg VALIDATION_API_SN58=${{ secrets.VALIDATION_API_SN58 }} \
-            -t us-east1-docker.pkg.dev/bittensor-449517/bittensor-artifacts/sn58-modelq-v2:latest \
-            -f modelq.Dockerfile .
-
-      # Push the custom Python Docker image to GCP Artifact Registry
-      - name: Push Docker Image
-        run: |
-            docker push us-east1-docker.pkg.dev/bittensor-449517/bittensor-artifacts/sn58-modelq-v2:latest
+      # Build and push Docker image
+      - name: Build and Push Docker Image
+        uses: docker/build-push-action@v4
+        with:
+          context: .
+          file: modelq.Dockerfile
+          push: true
+          tags: |
+            ghcr.io/${{ github.repository }}/sn58-modelq:latest
+            ghcr.io/${{ github.repository }}/sn58-modelq:${{ steps.git-sha.outputs.sha }}

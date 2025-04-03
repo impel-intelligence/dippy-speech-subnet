@@ -11,7 +11,7 @@ jobs:
       # Check authorized user
       - name: Check Triggering User
         run: |
-          AUTHORIZED_USERS=("pravin-X109" "ManavShahWasTaken" "donaldknoller")
+          AUTHORIZED_USERS=("ManavShahWasTaken" "donaldknoller")
           AUTHORIZED=false
           for user in "${AUTHORIZED_USERS[@]}"; do
             if [ "$user" = "${{ github.actor }}" ]; then
