@@ -2,7 +2,7 @@ name: Validation API SN58
 on:
   workflow_dispatch:  # Allows manual triggering of the workflow
 jobs:
-  push-image:
+  build-n-push-image:
     runs-on: ubuntu-latest
     steps:
       # Checkout the repository (required for building the Docker image)
@@ -36,8 +36,8 @@ jobs:
         uses: docker/build-push-action@v4
         with:
           context: .
-          file: modelq.Dockerfile
+          file: vapi.Dockerfile
           push: true
           tags: |
-            ghcr.io/${{ github.repository }}/sn58-modelq:latest
-            ghcr.io/${{ github.repository }}/sn58-modelq:${{ steps.git-sha.outputs.sha }}
+            ghcr.io/${{ github.repository }}/vapi:latest
+            ghcr.io/${{ github.repository }}/vapi:${{ steps.git-sha.outputs.sha }}

@@ -5,7 +5,6 @@ wheel
 setuptools
 docker
 packaging
-torch>=2.0.1
 tqdm >= 4.66.5
 vllm>=0.5.2
 pydantic >= 2.0
@@ -31,3 +30,16 @@ isort
 autoflake
 pre-commit
 python-dotenv
+
+torch>=2.3.1
+
+git+https://github.com/huggingface/parler-tts.git
+gtts==2.5.3
+scikit-learn==1.5.2
+speechbrain==1.0.1
+funasr==1.1.12
+
+rich
+colorama
+librosa
+jiwer
