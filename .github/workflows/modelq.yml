@@ -38,5 +38,5 @@ jobs:
           file: modelq.Dockerfile
           push: true
           tags: |
-            ghcr.io/${{ github.repository }}/sn58-modelq:latest
-            ghcr.io/${{ github.repository }}/sn58-modelq:${{ steps.git-sha.outputs.sha }}
+            ghcr.io/${{ github.repository }}/modelq:latest
+            ghcr.io/${{ github.repository }}/modelq:${{ steps.git-sha.outputs.sha }}
