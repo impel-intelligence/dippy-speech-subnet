@@ -26,13 +26,9 @@ def prepare_from_hf_dataset(dataset_name: str, partitions: List[str]):
 import requests
 
 
-# DATASET_URL = "https://sn58-dataset.dippy-bittensor-subnet.com/dataset"
-
-# DATASET_API_KEY = os.environ.get("DATASET_API_KEY", "dippy")
-DATASET_API_KEY = "someVerysecretKey"
+DATASET_API_KEY = os.environ.get("DATASET_API_KEY", "dippy")
 
 # Authentication
-# VOICES_URL = "https://sn58-dataset.dippy-bittensor-subnet.com"
 VOICES_URL = "http://172.179.94.58"
 USERNAME = os.getenv("VASPI_USERNAME")
 PASSWORD = os.getenv("VASPI_PASSWORD")
