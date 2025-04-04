@@ -576,28 +576,5 @@ def scoring_workflow(repo_namespace, repo_name, text, voice_description, device,
         logger.info("Tokenizer was not defined")
 
 
-    try:
-        # Force garbage collection before clearing CUDA cache
-        gc.collect()
-        torch.cuda.reset_peak_memory_stats()
-        torch.cuda.empty_cache()
-    except Exception as e:
-        logger.info(f"CUDA cleanup error: {e}")
-
-    try:
-        # Shut down Ray if it's running
-        if ray.is_initialized():
-            ray.shutdown()
-    except Exception as e:
-        logger.info(f"Ray shutdown error: {e}")
-
-    try:
-        # Destroy process group if initialized
-        if dist.is_initialized():
-            dist.destroy_process_group()
-    except Exception as e:
-        logger.info(f"Torch distributed cleanup error: {e}")
-
-
 
     return (loss, wer_score)

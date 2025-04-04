@@ -7,7 +7,6 @@ import pandas as pd
 from fastapi import FastAPI, HTTPException, Header, Request, Response, APIRouter, Depends, Security
 from huggingface_hub import HfApi
 from huggingface_hub.hf_api import HfApi, RepositoryNotFoundError, GatedRepoError
-from dotenv import load_dotenv
 from pydantic import BaseModel
 from fastapi.security import APIKeyHeader
 from starlette.exceptions import HTTPException
@@ -20,9 +19,8 @@ from common.validation_utils import regenerate_hash
 from common.event_logger import EventLogger
 from scoring.common import EvaluateModelRequest
 
-load_dotenv()
 
-BLOCK_RATE_LIMIT = 14400  # Every 14400 blocks = 48 hours
+BLOCK_RATE_LIMIT = 28800  # Every 28800 blocks = 96 hours
 logger = logging.getLogger("uvicorn")
 logging.basicConfig(level=logging.ERROR)
 

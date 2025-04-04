@@ -25,12 +25,8 @@ load_dotenv()
 
 
 class WorkerQueue:
-    # GPU_ID_MAP = {0: "0", 1: "0", 2: "4,5", 3: "6,7", 4: "8,9"}
     GPU_ID_MAP = {
         0: "0",  # Queue 0 uses GPU 0
-        1: "1",  # Queue 1 uses GPU 1
-        2: "2",  # Queue 2 uses GPU 2
-        3: "3",  # Queue 3 uses GPU 3
     }
 
     def __init__(self, image_name: str = "speech:latest", stub: bool = False):
@@ -84,10 +80,6 @@ class WorkerQueue:
         except Exception as e:
             logger.error(f"Error during model evaluation: {e}")
             self.event_logger.info("model_eval_queue_error", error=str(e))
-        finally:
-            gc.collect()
-            if torch.cuda.is_available():
-                torch.cuda.empty_cache()
 
     def _get_next_model_to_eval(self) -> Optional[EvaluateModelRequest]:
         """Get the next model from the queue to evaluate"""

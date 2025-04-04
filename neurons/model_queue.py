@@ -20,7 +20,7 @@
 import argparse
 import asyncio
 import datetime as dt
-
+import sys
 import logging
 import random
 import os
@@ -105,7 +105,7 @@ class ModelQueue:
         parser.add_argument(
             "--immediate",
             action="store_true",
-            help="Triggers run step immediately. NOT RECOMMENDED FOR PRODUCTION",
+            help="Triggers run step immediately. Exits after first run",
         )
         parser.add_argument("--netuid", type=str, default=constants.SUBNET_UID, help="The subnet UID.")
         parser.add_argument(
@@ -162,6 +162,8 @@ class ModelQueue:
                 asyncio.run(self.load_latest_metagraph())
             except Exception as e:
                 self.logger.error(f"failed to queue {e}")
+            if self.config.immediate:
+                sys.exit(0)
 
     async def check_uid(
         self, uid: int, miner_info_map: typing.Dict[int, MinerInfo], semaphore: Semaphore
