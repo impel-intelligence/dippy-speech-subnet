@@ -238,11 +238,12 @@ def generate_audio(speaker, prompt_text, sample_number, model, tokenizer, device
             prompt_text = tokenizer.decode(truncated_tokens, skip_special_tokens=True)
 
         # Tokenize the description and prompt
-        input_ids = tokenizer(description, return_tensors="pt").input_ids.to(device)
-        prompt_input_ids = tokenizer(prompt_text, return_tensors="pt").input_ids.to(device)
+        input_ids = tokenizer(description, return_tensors="pt").to(device)
+        prompt_input_ids = tokenizer(prompt_text, return_tensors="pt").to(device)
 
         # Generate audio
-        generation = model.generate(input_ids=input_ids, prompt_input_ids=prompt_input_ids)
+        generation = model.generate(input_ids=input_ids.input_ids, prompt_input_ids=prompt_input_ids.input_ids,
+                                    attention_mask=input_ids.attention_mask, prompt_attention_mask=prompt_input_ids.attention_mask)
 
         # Convert to numpy array
         audio_arr = generation.cpu().numpy().squeeze()
