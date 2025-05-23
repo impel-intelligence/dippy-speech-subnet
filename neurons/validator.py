@@ -86,7 +86,7 @@ def extract_raw_data(data):
 os.environ["TOKENIZERS_PARALLELISM"] = "false"
 INVALID_BLOCK_START = 4200000
 INVALID_BLOCK_END = 4200000
-NEW_EPOCH_BLOCK = 5170100 # Models submitted before this block will get weights set to zero after block # 5,170,108
+NEW_EPOCH_BLOCK = 5623610 # Models submitted before this block will get weights set to zero after block # 5,170,108
 
 SUBNET_REGISTERED_UID = 155
 SUBNET_EMISSION_BURN_RATE = 0.75
