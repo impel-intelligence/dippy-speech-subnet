@@ -111,17 +111,19 @@ class ValidationAPI:
         self.app.include_router(self.router)
 
     def repository_exists(self, repo_id: str) -> bool:
-        try:
-            self.hf_api.repo_info(repo_id)
-            return True
-        except RepositoryNotFoundError:
-            return False
-        except GatedRepoError:
-            return False
-        except Exception as e:
-            if self.event_logger_enabled:
-                self.event_logger.error("hf_repo_error", error=e)
-            return False
+        # Retry 3 times while checking repo availability
+        for retried in range(3):
+            try:
+                self.hf_api.repo_info(repo_id)
+                return True
+            except Exception as e:
+                if self.event_logger_enabled:
+                    self.event_logger.error("hf_repo_error", error=e)
+                # No need to sleep in the 3rd time error
+                if retried < 2:
+                    time.sleep(retried + 1) # linear growth
+        # Repo is not public after 3 times retried
+        return False
     @staticmethod
     def hash_check(request: EvaluateModelRequest) -> bool:
         hash_matches = int(request.hash) == regenerate_hash(
